@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { PrayerTime } from '@/lib/types'
-import { getMinchaTime, getTzeit, getSunset, getCandleLightingTime, isShabbatOrYomTov } from '@/lib/zmanim'
+import { fetchZmanim, getMinchaTime, getTzeit, getSunset, getCandleLightingTime, isShabbatOrYomTov } from '@/lib/zmanim'
 
 interface Props {
   prayerTimes: PrayerTime[]
@@ -13,52 +13,51 @@ const dayNames: Record<string, number> = {
 }
 
 function getTodayStr(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Nicosia' }) // YYYY-MM-DD
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Nicosia' })
 }
 
 export default function PrayerTimesPanel({ prayerTimes }: Props) {
   const [dynamicTimes, setDynamicTimes] = useState<Record<string, string>>({})
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    function calcTimes() {
+    async function loadTimes() {
+      // Fetch from Hebcal API (same data as chabad.org)
+      await fetchZmanim()
       setDynamicTimes({
         mincha: getMinchaTime(),
         arvit: getTzeit(),
         sunset: getSunset(),
         candles: getCandleLightingTime(),
       })
+      setLoaded(true)
     }
-    calcTimes()
-    const interval = setInterval(calcTimes, 3600000)
+    loadTimes()
+    // Refresh every hour
+    const interval = setInterval(loadTimes, 3600000)
     return () => clearInterval(interval)
   }, [])
 
   const today = new Date().getDay()
   const todayStr = getTodayStr()
 
-  // Check if there are date-specific entries for today
   const hasDateSpecific = prayerTimes.some((pt) =>
     pt.active && pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week) && pt.day_of_week === todayStr
   )
 
-  const isHolyDay = isShabbatOrYomTov()
+  const isHolyDay = loaded ? isShabbatOrYomTov() : false
 
   const activeTimes = prayerTimes
     .filter((pt) => {
       if (!pt.active) return false
-
-      // Check "weekday only" flag - hide during Shabbat/holidays
       if (pt.notes?.includes('[WEEKDAY_ONLY]') && isHolyDay) return false
 
-      // If day_of_week is a date (YYYY-MM-DD format), match exact date
       if (pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week)) {
         return pt.day_of_week === todayStr
       }
 
-      // If there are date-specific entries for today, skip generic day-of-week entries
       if (hasDateSpecific) return false
 
-      // Regular day-of-week matching
       if (!pt.day_of_week) return true
       return dayNames[pt.day_of_week] === today
     })
@@ -68,7 +67,6 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
       else if (time === 'dynamic:arvit') time = dynamicTimes.arvit || '--:--'
       else if (time === 'dynamic:sunset') time = dynamicTimes.sunset || '--:--'
       else if (time === 'dynamic:candles') time = dynamicTimes.candles || '--:--'
-      // Clean the [WEEKDAY_ONLY] marker from displayed notes
       const notes = pt.notes?.replace('[WEEKDAY_ONLY]', '').trim() || null
       return { ...pt, time, notes }
     })
@@ -79,13 +77,11 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
       background: '#fff',
       borderTop: '1px solid rgba(0,0,0,0.05)',
     }}>
-      {/* Header */}
       <div className="px-5 pt-4 pb-2 flex items-center gap-2">
         <div className="w-1 h-4 rounded-full" style={{ background: '#891738' }} />
         <span className="text-sm font-bold" style={{ color: '#891738' }}>זמני תפילות</span>
       </div>
 
-      {/* Times */}
       <div className="px-4 pb-4 space-y-1">
         {activeTimes.map((pt, i) => (
           <div key={pt.id} className="flex justify-between items-center py-2.5 px-3 rounded-lg"

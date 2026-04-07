@@ -70,7 +70,7 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
       const notes = pt.notes?.replace('[WEEKDAY_ONLY]', '').trim() || null
       return { ...pt, time, notes }
     })
-    .sort((a, b) => a.sort_order - b.sort_order)
+    .sort((a, b) => a.time.localeCompare(b.time))
 
   return (
     <div style={{

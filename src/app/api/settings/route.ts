@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server'
 import { getServiceClient } from '@/lib/supabase'
-import { isAdmin } from '@/lib/auth'
 
 export async function GET() {
   const supabase = getServiceClient()
@@ -16,10 +15,6 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  if (!(await isAdmin())) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   const body = await request.json()
   const supabase = getServiceClient()
 

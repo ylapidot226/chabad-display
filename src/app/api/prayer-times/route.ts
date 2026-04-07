@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server'
 import { getServiceClient } from '@/lib/supabase'
-import { isAdmin } from '@/lib/auth'
 
 export async function GET() {
   const supabase = getServiceClient()
@@ -14,10 +13,6 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await isAdmin())) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   const body = await request.json()
   const supabase = getServiceClient()
   const { data, error } = await supabase
@@ -31,10 +26,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  if (!(await isAdmin())) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   const body = await request.json()
   const { id, ...updates } = body
   const supabase = getServiceClient()
@@ -50,10 +41,6 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!(await isAdmin())) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   const { id } = await request.json()
   const supabase = getServiceClient()
   const { error } = await supabase.from('prayer_times').delete().eq('id', id)

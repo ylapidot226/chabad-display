@@ -1,11 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getServiceClient } from '@/lib/supabase'
-import { isAdmin } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
-  if (!(await isAdmin())) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   const formData = await request.formData()
   const file = formData.get('file') as File

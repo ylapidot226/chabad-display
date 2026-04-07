@@ -1,6 +1,13 @@
 import { NextRequest } from 'next/server'
 import { getServiceClient } from '@/lib/supabase'
 
+export const config = {
+  api: { bodyParser: false },
+}
+
+// Allow up to 10MB uploads
+export const maxDuration = 30
+
 export async function POST(request: NextRequest) {
 
   const formData = await request.formData()

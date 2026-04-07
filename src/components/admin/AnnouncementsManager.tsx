@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getSupabase } from '@/lib/supabase'
 import type { Announcement, MediaItem } from '@/lib/types'
 
 type AnnouncementType = 'text' | 'image'
@@ -63,17 +62,26 @@ export default function AnnouncementsManager() {
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Check file size (max 4MB for Vercel)
+    if (file.size > 4 * 1024 * 1024) {
+      alert('הקובץ גדול מדי (מקסימום 4MB). נסה לכווץ את התמונה.')
+      return
+    }
+
     setUploading(true)
     try {
-      const supabase = getSupabase()
-      const ext = file.name.split('.').pop()
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-
-      const { error } = await supabase.storage.from('media').upload(fileName, file, { contentType: file.type })
-      if (error) throw new Error(error.message)
-
-      const { data: urlData } = supabase.storage.from('media').getPublicUrl(fileName)
-      setForm((f) => ({ ...f, type: 'image', url: urlData.publicUrl, title: file.name.split('.')[0] }))
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (!res.ok) {
+        const text = await res.text()
+        let errMsg = 'שגיאה בהעלאה'
+        try { errMsg = JSON.parse(text).error || errMsg } catch { errMsg = text || errMsg }
+        throw new Error(errMsg)
+      }
+      const { url } = await res.json()
+      setForm((f) => ({ ...f, type: 'image', url, title: file.name.split('.')[0] }))
       setShowForm(true)
     } catch (err) {
       alert('שגיאה בהעלאה: ' + (err instanceof Error ? err.message : 'Unknown error'))

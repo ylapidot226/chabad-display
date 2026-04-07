@@ -28,7 +28,6 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
     setCurrentIndex((prev) => (prev + 1) % videos.length)
   }, [videos.length])
 
-  // Handle regular video ended
   useEffect(() => {
     if (videos.length === 0) return
     const current = videos[currentIndex]
@@ -42,7 +41,7 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
     return () => video.removeEventListener('ended', handleEnded)
   }, [currentIndex, videos, goToNext])
 
-  // Handle YouTube video duration (auto-advance after duration_seconds or 60s default)
+  // YouTube: auto-advance after duration
   useEffect(() => {
     if (videos.length === 0) return
     const current = videos[currentIndex]
@@ -91,31 +90,45 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   const youtubeId = getYouTubeId(current.url)
 
   return (
-    <div className="w-full h-full relative" style={{ background: '#000' }}>
+    <div className="w-full h-full relative overflow-hidden" style={{ background: '#1a1a1a' }}>
       {youtubeId ? (
-        <iframe
-          key={current.id}
-          src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&controls=0&loop=0&modestbranding=1&rel=0&showinfo=0`}
-          className="w-full h-full"
-          style={{ border: 'none' }}
-          allow="autoplay; encrypted-media"
-          allowFullScreen
-        />
+        <>
+          {/* Blurred background for cinematic look */}
+          <div className="absolute inset-0 scale-150 blur-3xl opacity-40">
+            <img
+              src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
+              className="w-full h-full object-cover"
+              alt=""
+            />
+          </div>
+          {/* YouTube embed - scaled up to hide controls */}
+          <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
+            <iframe
+              key={current.id}
+              src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&controls=0&loop=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
+              className="w-full h-full"
+              style={{ border: 'none', pointerEvents: 'none' }}
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+            />
+          </div>
+          {/* Invisible overlay to block all interaction */}
+          <div className="absolute inset-0 z-10" />
+        </>
       ) : (
         <video
           ref={videoRef}
           key={current.id}
           src={current.url}
           autoPlay
-          muted
           playsInline
-          className="w-full h-full object-contain"
+          className="w-full h-full object-cover"
         />
       )}
 
       {/* Now playing label */}
       {current.title && (
-        <div className="absolute top-4 right-4 slide-in">
+        <div className="absolute top-4 right-4 z-20 slide-in">
           <div className="px-4 py-2 rounded-lg flex items-center gap-2" style={{
             background: 'rgba(255,255,255,0.9)',
             boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
@@ -128,7 +141,7 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
 
       {/* Progress dots */}
       {videos.length > 1 && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
           {videos.map((_, i) => (
             <div key={i} className="w-2 h-2 rounded-full transition-all" style={{
               background: i === currentIndex ? '#fff' : 'rgba(255,255,255,0.3)',

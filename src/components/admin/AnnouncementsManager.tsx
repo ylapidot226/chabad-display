@@ -63,13 +63,19 @@ export default function AnnouncementsManager() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await fetch('/api/upload', { method: 'POST', body: formData })
-    if (res.ok) {
-      const { url } = await res.json()
-      setForm((f) => ({ ...f, type: 'image', url, title: file.name.split('.')[0] }))
-      setShowForm(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        setForm((f) => ({ ...f, type: 'image', url: data.url, title: file.name.split('.')[0] }))
+        setShowForm(true)
+      } else {
+        alert('שגיאה בהעלאה: ' + (data.error || res.statusText))
+      }
+    } catch (err) {
+      alert('שגיאה בהעלאה: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }
     setUploading(false)
   }

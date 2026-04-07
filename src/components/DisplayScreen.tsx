@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, Component, type ReactNode } from 'react'
-import { getSupabase } from '@/lib/supabase'
 import { isShabbatOrYomTov, getGreeting } from '@/lib/zmanim'
 import VideoPlayer from './VideoPlayer'
 import AnnouncementsSlider from './AnnouncementsSlider'
@@ -39,7 +38,6 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: string |
     return this.props.children
   }
   componentDidCatch() {
-    // Auto-reload after 30 seconds on error
     setTimeout(function() { window.location.reload() }, 30000)
   }
 }
@@ -54,43 +52,32 @@ function DisplayScreenInner() {
   const [holyDay, setHolyDay] = useState(false)
   const [greeting, setGreeting] = useState<string | null>(null)
 
-  async function loadData() {
-    try {
-      var supabase = getSupabase()
-      var results = await Promise.all([
-        supabase.from('media').select('*').eq('active', true).order('sort_order'),
-        supabase.from('announcements').select('*').eq('active', true).order('priority', { ascending: false }),
-        supabase.from('prayer_times').select('*').eq('active', true).order('sort_order'),
-        supabase.from('display_settings').select('*'),
-      ])
-
-      var mediaRes = results[0]
-      var announcementsRes = results[1]
-      var prayerTimesRes = results[2]
-      var settingsRes = results[3]
-
-      if (mediaRes.data) setMedia(mediaRes.data)
-      if (announcementsRes.data) setAnnouncements(announcementsRes.data)
-      if (prayerTimesRes.data) setPrayerTimes(prayerTimesRes.data)
-      if (settingsRes.data) {
-        var s: Record<string, string> = {}
-        settingsRes.data.forEach(function(row: { key: string; value: string }) { s[row.key] = row.value })
-        setSettings(s as unknown as DisplaySettings)
-      }
-      setLoadError(null)
-      setLoaded(true)
-    } catch (err: unknown) {
-      var msg = err instanceof Error ? err.message : String(err)
-      console.error('Failed to load data:', msg)
-      setLoadError(msg)
-      // Still mark as loaded so we show something
-      setLoaded(true)
-    }
+  // Load all data from a single server API (no Supabase client on TV browser)
+  function loadData() {
+    fetch('/api/display')
+      .then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status)
+        return res.json()
+      })
+      .then(function(data) {
+        if (data.media) setMedia(data.media)
+        if (data.announcements) setAnnouncements(data.announcements)
+        if (data.prayer_times) setPrayerTimes(data.prayer_times)
+        if (data.settings) setSettings(data.settings as unknown as DisplaySettings)
+        setLoadError(null)
+        setLoaded(true)
+      })
+      .catch(function(err) {
+        var msg = err && err.message ? err.message : String(err)
+        console.error('Failed to load data:', msg)
+        setLoadError(msg)
+        setLoaded(true)
+      })
   }
 
   useEffect(function() {
     loadData()
-    var interval = setInterval(loadData, 60000)
+    var interval = setInterval(loadData, 30000)
     return function() { clearInterval(interval) }
   }, [])
 
@@ -107,22 +94,6 @@ function DisplayScreenInner() {
     checkHolyDay()
     var interval = setInterval(checkHolyDay, 60000)
     return function() { clearInterval(interval) }
-  }, [])
-
-  useEffect(function() {
-    try {
-      var sb = getSupabase()
-      var channel = sb
-        .channel('display-updates')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'media' }, function() { loadData() })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, function() { loadData() })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'prayer_times' }, function() { loadData() })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'display_settings' }, function() { loadData() })
-        .subscribe()
-      return function() { sb.removeChannel(channel) }
-    } catch (e) {
-      console.error('Realtime subscription failed:', e)
-    }
   }, [])
 
   if (!loaded) {
@@ -163,30 +134,26 @@ function DisplayScreenInner() {
           Connection error: {loadError}
         </div>
         <div style={{ marginTop: '20px', fontSize: '14px', opacity: 0.5 }}>
-          Retrying every 60 seconds...
+          Retrying every 30 seconds...
         </div>
       </div>
     )
   }
 
   var slideDuration = 10
-  try { slideDuration = parseInt(settings?.slide_duration || '10') || 10 } catch (e) { /* use default */ }
+  try { slideDuration = parseInt(settings?.slide_duration || '10') || 10 } catch (e) { /* default */ }
 
-  // Split media: videos go to VideoPlayer, images go to AnnouncementsSlider
   var videos = media.filter(function(m) { return m.type === 'video' })
   var images = media.filter(function(m) { return m.type === 'image' })
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col no-scrollbar" style={{ background: '#f8f7f4' }}>
-      {/* Top bar */}
       <TopBar />
 
-      {/* Main layout */}
       <div className="flex-1 flex min-h-0">
-        {/* Left: Video area (idle screen during Shabbat/Yom Tov) */}
+        {/* Video area (idle screen during Shabbat/Yom Tov) */}
         <div className="flex-[3] relative min-w-0">
           <VideoPlayer videos={holyDay ? [] : videos} />
-          {/* Greeting overlay during Shabbat/Yom Tov */}
           {holyDay && greeting && (
             <div className="absolute bottom-10 left-0 right-0 flex justify-center z-10">
               <div className="px-10 py-5 rounded-2xl" style={{
@@ -199,16 +166,13 @@ function DisplayScreenInner() {
           )}
         </div>
 
-        {/* Right sidebar: announcements and prayer times */}
+        {/* Right sidebar */}
         <div className="flex-[2] flex-shrink-0 flex flex-col" style={{
           borderRight: '1px solid rgba(0,0,0,0.06)',
         }}>
-          {/* Announcements - top part of sidebar */}
           <div className="flex-1 min-h-0">
             <AnnouncementsSlider items={images} announcements={announcements} slideDuration={slideDuration} />
           </div>
-
-          {/* Prayer times - bottom part of sidebar */}
           <div className="flex-shrink-0">
             <PrayerTimesPanel prayerTimes={prayerTimes} />
           </div>

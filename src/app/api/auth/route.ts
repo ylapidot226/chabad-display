@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server'
 export async function POST(request: NextRequest) {
   const { password } = await request.json()
 
-  if (password === process.env.ADMIN_PASSWORD) {
+  if (password === '226') {
     const cookieStore = await cookies()
     cookieStore.set('admin_auth', 'true', {
       httpOnly: true,

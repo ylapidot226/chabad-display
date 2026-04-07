@@ -35,9 +35,10 @@ export default function SettingsManager() {
   }
 
   const inputStyle = {
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
+    background: '#f9f9f9',
+    border: '1px solid #ddd',
     borderRadius: '10px',
+    color: '#333',
   }
 
   return (
@@ -46,33 +47,33 @@ export default function SettingsManager() {
 
       <div className="glass-card p-8 space-y-6">
         <div>
-          <label className="block text-sm opacity-50 mb-2">שם בית הכנסת</label>
+          <label className="block text-sm text-gray-500 mb-2">שם בית הכנסת</label>
           <input type="text" value={settings.shul_name}
             onChange={(e) => setSettings((s) => ({ ...s, shul_name: e.target.value }))}
-            className="w-full p-3 text-white" style={inputStyle} />
+            className="w-full p-3 text-gray-800" style={inputStyle} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm opacity-50 mb-2">מהירות טיקר (שניות)</label>
+            <label className="block text-sm text-gray-500 mb-2">מהירות טיקר (שניות)</label>
             <input type="number" value={settings.ticker_speed}
               onChange={(e) => setSettings((s) => ({ ...s, ticker_speed: e.target.value }))}
-              className="w-full p-3 text-white" style={inputStyle} />
-            <p className="text-xs opacity-30 mt-1.5">מספר גבוה = איטי יותר</p>
+              className="w-full p-3 text-gray-800" style={inputStyle} />
+            <p className="text-xs text-gray-300 mt-1.5">מספר גבוה = איטי יותר</p>
           </div>
           <div>
-            <label className="block text-sm opacity-50 mb-2">משך תצוגת תמונה (שניות)</label>
+            <label className="block text-sm text-gray-500 mb-2">משך תצוגת תמונה (שניות)</label>
             <input type="number" value={settings.slide_duration}
               onChange={(e) => setSettings((s) => ({ ...s, slide_duration: e.target.value }))}
-              className="w-full p-3 text-white" style={inputStyle} />
+              className="w-full p-3 text-gray-800" style={inputStyle} />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm opacity-50 mb-2">עיר למזג אוויר</label>
+          <label className="block text-sm text-gray-500 mb-2">עיר למזג אוויר</label>
           <input type="text" value={settings.weather_city}
             onChange={(e) => setSettings((s) => ({ ...s, weather_city: e.target.value }))}
-            className="w-full p-3 text-white" style={inputStyle} />
+            className="w-full p-3 text-gray-800" style={inputStyle} />
         </div>
 
         <div className="space-y-3 pt-2">
@@ -90,13 +91,13 @@ export default function SettingsManager() {
                   checked={settings[key as keyof DisplaySettings] === 'true'}
                   onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.checked ? 'true' : 'false' }))} />
               </div>
-              <span className="text-sm opacity-70 group-hover:opacity-100 transition-opacity">{label}</span>
+              <span className="text-sm text-gray-600 group-hover:opacity-100 transition-opacity">{label}</span>
             </label>
           ))}
         </div>
 
         <button onClick={handleSave} disabled={saving}
-          className="px-8 py-3 rounded-xl font-bold text-base transition-all disabled:opacity-50 mt-4"
+          className="px-8 py-3 rounded-xl font-bold text-base transition-all disabled:text-gray-500 mt-4"
           style={{ background: saved ? 'rgba(34,197,94,0.2)' : 'linear-gradient(135deg, #891738, #a01d45)', color: saved ? '#22c55e' : 'white' }}>
           {saving ? 'שומר...' : saved ? 'נשמר בהצלחה' : 'שמירת הגדרות'}
         </button>

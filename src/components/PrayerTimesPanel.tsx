@@ -12,6 +12,10 @@ const dayNames: Record<string, number> = {
   'ראשון': 0, 'שני': 1, 'שלישי': 2, 'רביעי': 3, 'חמישי': 4, 'שישי': 5, 'שבת': 6
 }
 
+function getTodayStr(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Nicosia' }) // YYYY-MM-DD
+}
+
 export default function PrayerTimesPanel({ prayerTimes }: Props) {
   const [dynamicTimes, setDynamicTimes] = useState<Record<string, string>>({})
 
@@ -29,10 +33,26 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
   }, [])
 
   const today = new Date().getDay()
+  const todayStr = getTodayStr()
+
+  // Check if there are date-specific entries for today
+  const hasDateSpecific = prayerTimes.some((pt) =>
+    pt.active && pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week) && pt.day_of_week === todayStr
+  )
 
   const activeTimes = prayerTimes
     .filter((pt) => {
       if (!pt.active) return false
+
+      // If day_of_week is a date (YYYY-MM-DD format), match exact date
+      if (pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week)) {
+        return pt.day_of_week === todayStr
+      }
+
+      // If there are date-specific entries for today, skip generic day-of-week entries
+      if (hasDateSpecific) return false
+
+      // Regular day-of-week matching
       if (!pt.day_of_week) return true
       return dayNames[pt.day_of_week] === today
     })
@@ -64,7 +84,7 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
             <div>
               <span className="text-[14px] font-medium" style={{ color: '#555' }}>{pt.name}</span>
               {pt.notes && (
-                <span className="text-[11px] mr-2" style={{ color: '#999' }}>({pt.notes})</span>
+                <span className="text-[11px] mr-2" style={{ color: '#999' }}> ({pt.notes})</span>
               )}
             </div>
             <span className="text-[16px] font-bold" style={{ color: '#891738', fontVariantNumeric: 'tabular-nums' }}>{pt.time}</span>

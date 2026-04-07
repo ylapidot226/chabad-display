@@ -74,9 +74,10 @@ export default function MediaManager() {
   }
 
   const inputStyle = {
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
+    background: '#f9f9f9',
+    border: '1px solid #ddd',
     borderRadius: '10px',
+    color: '#333',
   }
 
   return (
@@ -104,17 +105,17 @@ export default function MediaManager() {
         <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm opacity-50 mb-1.5">סוג</label>
+              <label className="block text-sm text-gray-500 mb-1.5">סוג</label>
               <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as 'image' | 'video' }))}
-                className="w-full p-2.5 text-white" style={inputStyle}>
+                className="w-full p-2.5" style={inputStyle}>
                 <option value="image">תמונה</option>
                 <option value="video">וידאו</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm opacity-50 mb-1.5">קטגוריה</label>
+              <label className="block text-sm text-gray-500 mb-1.5">קטגוריה</label>
               <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                className="w-full p-2.5 text-white" style={inputStyle}>
+                className="w-full p-2.5" style={inputStyle}>
                 <option value="general">כללי</option>
                 <option value="event">אירוע</option>
                 <option value="promo">פרסום</option>
@@ -122,32 +123,32 @@ export default function MediaManager() {
             </div>
           </div>
           <div>
-            <label className="block text-sm opacity-50 mb-1.5">URL</label>
+            <label className="block text-sm text-gray-500 mb-1.5">URL</label>
             <input type="url" value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
-              className="w-full p-2.5 text-white" style={inputStyle} required />
+              className="w-full p-2.5" style={inputStyle} required />
           </div>
           <div>
-            <label className="block text-sm opacity-50 mb-1.5">כותרת</label>
+            <label className="block text-sm text-gray-500 mb-1.5">כותרת</label>
             <input type="text" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              className="w-full p-2.5 text-white" style={inputStyle} />
+              className="w-full p-2.5" style={inputStyle} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm opacity-50 mb-1.5">משך תצוגה (שניות)</label>
+              <label className="block text-sm text-gray-500 mb-1.5">משך תצוגה (שניות)</label>
               <input type="number" value={form.duration_seconds} onChange={(e) => setForm((f) => ({ ...f, duration_seconds: parseInt(e.target.value) }))}
-                className="w-full p-2.5 text-white" style={inputStyle} />
+                className="w-full p-2.5" style={inputStyle} />
             </div>
             <div>
-              <label className="block text-sm opacity-50 mb-1.5">סדר</label>
+              <label className="block text-sm text-gray-500 mb-1.5">סדר</label>
               <input type="number" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value) }))}
-                className="w-full p-2.5 text-white" style={inputStyle} />
+                className="w-full p-2.5" style={inputStyle} />
             </div>
           </div>
           <div className="flex gap-3 pt-2">
             <button type="submit" className="px-6 py-2.5 rounded-xl font-medium text-sm" style={{ background: 'linear-gradient(135deg, #891738, #a01d45)' }}>
               שמירה
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 rounded-xl text-sm" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 rounded-xl text-sm" style={{ background: '#f0f0f0', color: '#555' }}>
               ביטול
             </button>
           </div>
@@ -156,7 +157,7 @@ export default function MediaManager() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((item) => (
-          <div key={item.id} className={`glass-card overflow-hidden transition-opacity ${!item.active ? 'opacity-40' : ''}`}>
+          <div key={item.id} className={`glass-card overflow-hidden transition-opacity ${!item.active ? 'text-gray-400' : ''}`}>
             <div className="aspect-video relative" style={{ background: 'rgba(255,255,255,0.03)' }}>
               {item.type === 'video' ? (
                 <video src={item.url} className="w-full h-full object-cover" muted />
@@ -169,7 +170,7 @@ export default function MediaManager() {
             </div>
             <div className="p-4">
               <h3 className="font-medium mb-1">{item.title || 'ללא כותרת'}</h3>
-              <p className="text-sm opacity-40">{item.category} • סדר: {item.sort_order}</p>
+              <p className="text-sm text-gray-400">{item.category} • סדר: {item.sort_order}</p>
               <div className="flex gap-2 mt-3">
                 <button onClick={() => toggleActive(item)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
@@ -188,7 +189,7 @@ export default function MediaManager() {
       </div>
 
       {items.length === 0 && (
-        <div className="text-center py-16 opacity-30">
+        <div className="text-center py-16 text-gray-300">
           <p className="text-xl mb-2">אין פריטי מדיה</p>
           <p className="text-sm">העלה תמונות או וידאו כדי להתחיל</p>
         </div>

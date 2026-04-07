@@ -19,17 +19,17 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<TabId>('media')
 
   return (
-    <div className="min-h-screen" dir="rtl" style={{ background: '#0f0f0f' }}>
+    <div className="min-h-screen" dir="rtl" style={{ background: '#f5f5f5', color: '#333' }}>
       {/* Header */}
       <header className="px-8 py-5" style={{
         background: 'linear-gradient(135deg, #891738 0%, #6b1230 100%)',
       }}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold tracking-wide gold-gradient">מרכז שליטה — בית חב״ד לימסול</h1>
+          <h1 className="text-xl font-bold tracking-wide text-white">מרכז שליטה — בית חב״ד לימסול</h1>
           <a
             href="/"
             target="_blank"
-            className="text-sm opacity-60 hover:opacity-100 transition-opacity"
+            className="text-sm text-white/60 hover:text-white transition-colors"
           >
             צפייה במסך &larr;
           </a>
@@ -37,7 +37,7 @@ export default function AdminDashboard() {
       </header>
 
       {/* Tabs */}
-      <div className="px-8" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="px-8 bg-white" style={{ borderBottom: '1px solid #e0e0e0' }}>
         <div className="max-w-7xl mx-auto flex gap-1">
           {tabs.map((tab) => (
             <button
@@ -45,12 +45,12 @@ export default function AdminDashboard() {
               onClick={() => setActiveTab(tab.id)}
               className="px-5 py-3.5 text-sm font-medium transition-all relative"
               style={{
-                color: activeTab === tab.id ? '#ffb400' : 'rgba(255,255,255,0.4)',
+                color: activeTab === tab.id ? '#891738' : '#999',
               }}
             >
               {tab.label}
               {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: '#ffb400' }} />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: '#891738' }} />
               )}
             </button>
           ))}

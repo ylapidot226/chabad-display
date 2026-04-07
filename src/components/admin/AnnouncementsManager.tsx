@@ -56,9 +56,10 @@ export default function AnnouncementsManager() {
   }
 
   const inputStyle = {
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
+    background: '#f9f9f9',
+    border: '1px solid #ddd',
     borderRadius: '10px',
+    color: '#333',
   }
 
   return (
@@ -77,27 +78,27 @@ export default function AnnouncementsManager() {
       {showForm && (
         <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4">
           <div>
-            <label className="block text-sm opacity-50 mb-1.5">טקסט המודעה</label>
+            <label className="block text-sm text-gray-500 mb-1.5">טקסט המודעה</label>
             <textarea value={form.text} onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))}
-              className="w-full p-3 h-24 resize-none text-white" style={inputStyle} required placeholder="הקלד את טקסט המודעה..." />
+              className="w-full p-3 h-24 resize-none text-gray-800" style={inputStyle} required placeholder="הקלד את טקסט המודעה..." />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm opacity-50 mb-1.5">עדיפות (גבוה = ראשון)</label>
+              <label className="block text-sm text-gray-500 mb-1.5">עדיפות (גבוה = ראשון)</label>
               <input type="number" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: parseInt(e.target.value) }))}
-                className="w-full p-2.5 text-white" style={inputStyle} />
+                className="w-full p-2.5 text-gray-800" style={inputStyle} />
             </div>
             <div>
-              <label className="block text-sm opacity-50 mb-1.5">תוקף עד (אופציונלי)</label>
+              <label className="block text-sm text-gray-500 mb-1.5">תוקף עד (אופציונלי)</label>
               <input type="datetime-local" value={form.ends_at} onChange={(e) => setForm((f) => ({ ...f, ends_at: e.target.value }))}
-                className="w-full p-2.5 text-white" style={inputStyle} />
+                className="w-full p-2.5 text-gray-800" style={inputStyle} />
             </div>
           </div>
           <div className="flex gap-3 pt-2">
             <button type="submit" className="px-6 py-2.5 rounded-xl font-medium text-sm" style={{ background: 'linear-gradient(135deg, #891738, #a01d45)' }}>
               {editId ? 'עדכון' : 'הוספה'}
             </button>
-            <button type="button" onClick={() => { setShowForm(false); setEditId(null) }} className="px-6 py-2.5 rounded-xl text-sm" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <button type="button" onClick={() => { setShowForm(false); setEditId(null) }} className="px-6 py-2.5 rounded-xl text-sm" style={{ background: '#f0f0f0', color: '#555' }}>
               ביטול
             </button>
           </div>
@@ -106,10 +107,10 @@ export default function AnnouncementsManager() {
 
       <div className="space-y-3">
         {items.map((item) => (
-          <div key={item.id} className={`glass-card p-5 flex items-center gap-4 transition-opacity ${!item.active ? 'opacity-40' : ''}`}>
+          <div key={item.id} className={`glass-card p-5 flex items-center gap-4 transition-opacity ${!item.active ? 'text-gray-400' : ''}`}>
             <div className="flex-1">
               <p className="text-base leading-relaxed">{item.text}</p>
-              <div className="flex gap-4 mt-2 text-xs opacity-40">
+              <div className="flex gap-4 mt-2 text-xs text-gray-400">
                 <span>עדיפות: {item.priority}</span>
                 {item.ends_at && <span>תוקף עד: {new Date(item.ends_at).toLocaleDateString('he-IL')}</span>}
               </div>

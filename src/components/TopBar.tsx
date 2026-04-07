@@ -2,19 +2,49 @@
 
 import { useState, useEffect } from 'react'
 
+var hebrewDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+var hebrewMonths = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
+
+function pad(n: number): string {
+  return n < 10 ? '0' + n : '' + n
+}
+
+function getTime(): string {
+  var now = new Date()
+  return pad(now.getHours()) + ':' + pad(now.getMinutes())
+}
+
+function getGregDate(): string {
+  var now = new Date()
+  var dayName = 'יום ' + hebrewDays[now.getDay()]
+  return dayName + ', ' + now.getDate() + ' ב' + hebrewMonths[now.getMonth()]
+}
+
+function getHebrewDate(): string {
+  try {
+    var now = new Date()
+    // Try Intl first
+    var formatter = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric' })
+    return formatter.format(now)
+  } catch (e) {
+    // Fallback - just return empty
+    return ''
+  }
+}
+
 export default function TopBar() {
-  var [time, setTime] = useState('')
+  var [time, setTime] = useState(getTime())
+  var [gregDate, setGregDate] = useState(getGregDate())
   var [hebrewDate, setHebrewDate] = useState('')
-  var [gregDate, setGregDate] = useState('')
 
   useEffect(function() {
+    // Set hebrew date after mount (might fail on some browsers)
+    setHebrewDate(getHebrewDate())
+
     function update() {
-      var now = new Date()
-      setTime(new Intl.DateTimeFormat('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false }).format(now))
-      setHebrewDate(new Intl.DateTimeFormat('he-IL-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric' }).format(now))
-      setGregDate(new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }).format(now))
+      setTime(getTime())
+      setGregDate(getGregDate())
     }
-    update()
     var interval = setInterval(update, 1000)
     return function() { clearInterval(interval) }
   }, [])
@@ -45,8 +75,12 @@ export default function TopBar() {
         {/* Center: Dates */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '18px', fontWeight: 500, color: 'rgba(255,255,255,0.8)' }}>{gregDate}</span>
-          <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
-          <span style={{ fontSize: '18px', color: 'rgba(255,255,255,0.55)' }}>{hebrewDate}</span>
+          {hebrewDate && (
+            <>
+              <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
+              <span style={{ fontSize: '18px', color: 'rgba(255,255,255,0.55)' }}>{hebrewDate}</span>
+            </>
+          )}
         </div>
 
         {/* Left: Clock */}

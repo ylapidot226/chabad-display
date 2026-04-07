@@ -106,7 +106,7 @@ function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerT
         display: 'flex', flexDirection: 'row',
         flex: 1, minHeight: 0, overflow: 'hidden',
       }}>
-        {/* Video area */}
+        {/* Video area - 60% */}
         <div style={{
           flex: 3, position: 'relative', minWidth: 0, overflow: 'hidden',
         }}>
@@ -127,17 +127,17 @@ function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerT
           )}
         </div>
 
-        {/* Sidebar - announcements + prayer times */}
+        {/* Sidebar - 40% */}
         <div style={{
           flex: 2, display: 'flex', flexDirection: 'column',
           borderRight: '1px solid rgba(0,0,0,0.06)',
           overflow: 'hidden',
         }}>
-          {/* Announcements - top part */}
+          {/* Announcements */}
           <div style={{ flex: 3, minHeight: 0, overflow: 'hidden' }}>
             <AnnouncementsSlider items={images} announcements={announcements} slideDuration={slideDuration} />
           </div>
-          {/* Prayer times - bottom part */}
+          {/* Prayer times */}
           <div style={{ flex: 2, minHeight: 0, overflow: 'hidden' }}>
             <PrayerTimesPanel prayerTimes={prayerTimes} />
           </div>

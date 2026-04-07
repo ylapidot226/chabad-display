@@ -193,7 +193,7 @@ export default function PrayerTimesManager() {
     if (filter === 'all') return true
     const cat = getCategory(item)
     if (filter === 'weekday') return cat === 'weekday' || cat === 'every_day'
-    if (filter === 'shabbat') return cat === 'shabbat' || cat === 'every_day'
+    if (filter === 'shabbat') return cat === 'shabbat' || (cat === 'every_day' && !item.notes?.includes('[WEEKDAY_ONLY]'))
     if (filter === 'holiday') return cat === 'holiday'
     return true
   })
@@ -414,9 +414,27 @@ export default function PrayerTimesManager() {
     </div>
   )
 
+  async function toggleWeekdayOnly(item: PrayerTime) {
+    const isWeekday = item.notes?.includes('[WEEKDAY_ONLY]')
+    let newNotes: string | null
+    if (isWeekday) {
+      newNotes = (item.notes || '').replace('[WEEKDAY_ONLY]', '').trim() || null
+    } else {
+      newNotes = '[WEEKDAY_ONLY]' + (item.notes ? ' ' + item.notes : '')
+    }
+    await fetch('/api/prayer-times', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: item.id, notes: newNotes }),
+    })
+    loadItems()
+  }
+
   function renderItem(item: PrayerTime) {
     const cat = getCategory(item)
-    const catColor = cat === 'holiday' ? '#ffb400' : cat === 'shabbat' ? '#1e73be' : '#22c55e'
+    const catColor = cat === 'holiday' ? '#ffb400' : cat === 'shabbat' ? '#1e73be' : cat === 'weekday' ? '#22c55e' : '#999'
+    const catLabel = cat === 'holiday' ? 'חג' : cat === 'shabbat' ? 'שבת' : cat === 'weekday' ? 'חול' : 'כל יום'
+    const isWeekdayOnly = item.notes?.includes('[WEEKDAY_ONLY]')
     const notes = formatNotes(item)
 
     return (
@@ -426,13 +444,25 @@ export default function PrayerTimesManager() {
           {formatTime(item)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-base font-medium">{item.name}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-base font-medium">{item.name}</p>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: catColor + '20', color: catColor }}>
+              {catLabel}
+            </span>
+          </div>
           <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
             <span>{formatSchedule(item)}</span>
             {notes && <span>{notes}</span>}
           </div>
         </div>
-        <div className="flex gap-2 flex-shrink-0">
+        <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+          {/* Quick weekday-only toggle for "every day" items */}
+          {!item.day_of_week && (
+            <button onClick={() => toggleWeekdayOnly(item)} className="px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={{ background: isWeekdayOnly ? 'rgba(34,197,94,0.15)' : '#f5f5f5', color: isWeekdayOnly ? '#22c55e' : '#aaa', border: isWeekdayOnly ? '1px solid rgba(34,197,94,0.3)' : '1px solid #e5e5e5' }}>
+              {isWeekdayOnly ? '✓ חול בלבד' : 'חול בלבד'}
+            </button>
+          )}
           <button onClick={() => startEdit(item)} className="px-3 py-1.5 rounded-lg text-xs font-medium"
             style={{ background: 'rgba(30,115,190,0.15)', color: '#1e73be' }}>עריכה</button>
           <button onClick={() => toggleActive(item)} className="px-3 py-1.5 rounded-lg text-xs font-medium"

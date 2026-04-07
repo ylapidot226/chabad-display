@@ -108,7 +108,7 @@ function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerT
       }}>
         {/* Video area */}
         <div style={{
-          flex: 2, position: 'relative', minWidth: 0, overflow: 'hidden',
+          flex: 3, position: 'relative', minWidth: 0, overflow: 'hidden',
         }}>
           <VideoPlayer videos={holyDay ? [] : videos} />
           {holyDay && greeting && (
@@ -129,7 +129,7 @@ function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerT
 
         {/* Sidebar - announcements + prayer times */}
         <div style={{
-          flex: 3, display: 'flex', flexDirection: 'column',
+          flex: 2, display: 'flex', flexDirection: 'column',
           borderRight: '1px solid rgba(0,0,0,0.06)',
           overflow: 'hidden',
         }}>

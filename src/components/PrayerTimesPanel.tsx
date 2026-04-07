@@ -1,6 +1,8 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import type { PrayerTime } from '@/lib/types'
+import { getMinchaTime, getTzeit, getSunset } from '@/lib/zmanim'
 
 interface Props {
   prayerTimes: PrayerTime[]
@@ -11,6 +13,21 @@ const dayNames: Record<string, number> = {
 }
 
 export default function PrayerTimesPanel({ prayerTimes }: Props) {
+  const [dynamicTimes, setDynamicTimes] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    function calcTimes() {
+      setDynamicTimes({
+        mincha: getMinchaTime(),
+        arvit: getTzeit(),
+        sunset: getSunset(),
+      })
+    }
+    calcTimes()
+    const interval = setInterval(calcTimes, 3600000)
+    return () => clearInterval(interval)
+  }, [])
+
   const today = new Date().getDay()
 
   const activeTimes = prayerTimes
@@ -18,6 +35,13 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
       if (!pt.active) return false
       if (!pt.day_of_week) return true
       return dayNames[pt.day_of_week] === today
+    })
+    .map((pt) => {
+      let time = pt.time
+      if (time === 'dynamic:mincha') time = dynamicTimes.mincha || '--:--'
+      else if (time === 'dynamic:arvit') time = dynamicTimes.arvit || '--:--'
+      else if (time === 'dynamic:sunset') time = dynamicTimes.sunset || '--:--'
+      return { ...pt, time }
     })
     .sort((a, b) => a.sort_order - b.sort_order)
 
@@ -37,7 +61,12 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
         {activeTimes.map((pt, i) => (
           <div key={pt.id} className="flex justify-between items-center py-2.5 px-3 rounded-lg"
             style={{ background: i % 2 === 0 ? 'rgba(137,23,56,0.03)' : 'transparent' }}>
-            <span className="text-[14px] font-medium" style={{ color: '#555' }}>{pt.name}</span>
+            <div>
+              <span className="text-[14px] font-medium" style={{ color: '#555' }}>{pt.name}</span>
+              {pt.notes && (
+                <span className="text-[11px] mr-2" style={{ color: '#999' }}>({pt.notes})</span>
+              )}
+            </div>
             <span className="text-[16px] font-bold" style={{ color: '#891738', fontVariantNumeric: 'tabular-nums' }}>{pt.time}</span>
           </div>
         ))}

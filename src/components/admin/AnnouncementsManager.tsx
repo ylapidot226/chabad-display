@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { getSupabase } from '@/lib/supabase'
 import type { Announcement, MediaItem } from '@/lib/types'
 
 type AnnouncementType = 'text' | 'image'
@@ -64,16 +65,16 @@ export default function AnnouncementsManager() {
     if (!file) return
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (res.ok && data.url) {
-        setForm((f) => ({ ...f, type: 'image', url: data.url, title: file.name.split('.')[0] }))
-        setShowForm(true)
-      } else {
-        alert('שגיאה בהעלאה: ' + (data.error || res.statusText))
-      }
+      const supabase = getSupabase()
+      const ext = file.name.split('.').pop()
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
+      const { error } = await supabase.storage.from('media').upload(fileName, file, { contentType: file.type })
+      if (error) throw new Error(error.message)
+
+      const { data: urlData } = supabase.storage.from('media').getPublicUrl(fileName)
+      setForm((f) => ({ ...f, type: 'image', url: urlData.publicUrl, title: file.name.split('.')[0] }))
+      setShowForm(true)
     } catch (err) {
       alert('שגיאה בהעלאה: ' + (err instanceof Error ? err.message : 'Unknown error'))
     }

@@ -130,11 +130,14 @@ function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerT
         {/* Right sidebar */}
         <div className="flex-[2] flex-shrink-0 flex flex-col" style={{
           borderRight: '1px solid rgba(0,0,0,0.06)',
+          maxWidth: '480px',
         }}>
-          <div className="flex-1 min-h-0">
+          {/* Announcements - top half */}
+          <div className="flex-1" style={{ minHeight: 0 }}>
             <AnnouncementsSlider items={images} announcements={announcements} slideDuration={slideDuration} />
           </div>
-          <div className="flex-shrink-0">
+          {/* Prayer times - bottom half */}
+          <div className="flex-1" style={{ minHeight: 0 }}>
             <PrayerTimesPanel prayerTimes={prayerTimes} />
           </div>
         </div>

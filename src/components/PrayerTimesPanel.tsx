@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { PrayerTime } from '@/lib/types'
-import { getMinchaTime, getTzeit, getSunset, isShabbatOrYomTov } from '@/lib/zmanim'
+import { getMinchaTime, getTzeit, getSunset, getCandleLightingTime, isShabbatOrYomTov } from '@/lib/zmanim'
 
 interface Props {
   prayerTimes: PrayerTime[]
@@ -25,6 +25,7 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
         mincha: getMinchaTime(),
         arvit: getTzeit(),
         sunset: getSunset(),
+        candles: getCandleLightingTime(),
       })
     }
     calcTimes()
@@ -66,6 +67,7 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
       if (time === 'dynamic:mincha') time = dynamicTimes.mincha || '--:--'
       else if (time === 'dynamic:arvit') time = dynamicTimes.arvit || '--:--'
       else if (time === 'dynamic:sunset') time = dynamicTimes.sunset || '--:--'
+      else if (time === 'dynamic:candles') time = dynamicTimes.candles || '--:--'
       // Clean the [WEEKDAY_ONLY] marker from displayed notes
       const notes = pt.notes?.replace('[WEEKDAY_ONLY]', '').trim() || null
       return { ...pt, time, notes }

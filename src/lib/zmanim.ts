@@ -91,6 +91,12 @@ export function getMinchaTime(date?: Date): string {
   return formatLocalTime(mincha)
 }
 
+export function getCandleLightingTime(date?: Date): string {
+  const sunset = getSunsetDate(date)
+  const candles = new Date(sunset.getTime() - 18 * 60 * 1000)
+  return formatLocalTime(candles)
+}
+
 export function isShabbat(date?: Date): boolean {
   const now = date || new Date()
   const day = now.getDay()

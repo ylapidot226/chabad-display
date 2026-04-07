@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { PrayerTime } from '@/lib/types'
-import { getMinchaTime, getTzeit, getSunset } from '@/lib/zmanim'
+import { getMinchaTime, getTzeit, getSunset, isShabbatOrYomTov } from '@/lib/zmanim'
 
 interface Props {
   prayerTimes: PrayerTime[]
@@ -40,9 +40,14 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
     pt.active && pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week) && pt.day_of_week === todayStr
   )
 
+  const isHolyDay = isShabbatOrYomTov()
+
   const activeTimes = prayerTimes
     .filter((pt) => {
       if (!pt.active) return false
+
+      // Check "weekday only" flag - hide during Shabbat/holidays
+      if (pt.notes?.includes('[WEEKDAY_ONLY]') && isHolyDay) return false
 
       // If day_of_week is a date (YYYY-MM-DD format), match exact date
       if (pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week)) {
@@ -61,7 +66,9 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
       if (time === 'dynamic:mincha') time = dynamicTimes.mincha || '--:--'
       else if (time === 'dynamic:arvit') time = dynamicTimes.arvit || '--:--'
       else if (time === 'dynamic:sunset') time = dynamicTimes.sunset || '--:--'
-      return { ...pt, time }
+      // Clean the [WEEKDAY_ONLY] marker from displayed notes
+      const notes = pt.notes?.replace('[WEEKDAY_ONLY]', '').trim() || null
+      return { ...pt, time, notes }
     })
     .sort((a, b) => a.sort_order - b.sort_order)
 

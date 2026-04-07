@@ -106,9 +106,9 @@ function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerT
         display: 'flex', flexDirection: 'row',
         flex: 1, minHeight: 0, overflow: 'hidden',
       }}>
-        {/* Video area - takes most of the space */}
+        {/* Video area */}
         <div style={{
-          flex: 3, position: 'relative', minWidth: 0, overflow: 'hidden',
+          flex: 2, position: 'relative', minWidth: 0, overflow: 'hidden',
         }}>
           <VideoPlayer videos={holyDay ? [] : videos} />
           {holyDay && greeting && (
@@ -129,17 +129,16 @@ function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerT
 
         {/* Sidebar - announcements + prayer times */}
         <div style={{
-          width: '420px', flexShrink: 0,
-          display: 'flex', flexDirection: 'column',
+          flex: 3, display: 'flex', flexDirection: 'column',
           borderRight: '1px solid rgba(0,0,0,0.06)',
           overflow: 'hidden',
         }}>
-          {/* Announcements - top half */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          {/* Announcements - top part */}
+          <div style={{ flex: 3, minHeight: 0, overflow: 'hidden' }}>
             <AnnouncementsSlider items={images} announcements={announcements} slideDuration={slideDuration} />
           </div>
-          {/* Prayer times - bottom half */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          {/* Prayer times - bottom part */}
+          <div style={{ flex: 2, minHeight: 0, overflow: 'hidden' }}>
             <PrayerTimesPanel prayerTimes={prayerTimes} />
           </div>
         </div>

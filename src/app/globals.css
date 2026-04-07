@@ -102,6 +102,14 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
+/* ── YouTube player fill ── */
+
+.yt-player-wrap iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+}
+
 /* ── Utilities ── */
 
 .no-scrollbar::-webkit-scrollbar { display: none; }

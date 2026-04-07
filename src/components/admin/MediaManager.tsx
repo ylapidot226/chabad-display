@@ -18,10 +18,10 @@ function getYouTubeId(url: string): string | null {
 export default function MediaManager() {
   const [items, setItems] = useState<MediaItem[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState({
     url: '',
     title: '',
-    duration_seconds: 60,
     sort_order: 0,
   })
 
@@ -35,9 +35,20 @@ export default function MediaManager() {
 
   useEffect(() => { loadItems() }, [])
 
+  function resetForm() {
+    setForm({ url: '', title: '', sort_order: 0 })
+    setEditId(null)
+    setShowForm(false)
+  }
+
+  function startEdit(item: MediaItem) {
+    setEditId(item.id)
+    setForm({ url: item.url, title: item.title || '', sort_order: item.sort_order })
+    setShowForm(true)
+  }
+
   function handleUrlChange(url: string) {
     setForm((f) => ({ ...f, url }))
-    // Auto-detect YouTube and set title placeholder
     const ytId = getYouTubeId(url)
     if (ytId && !form.title) {
       setForm((f) => ({ ...f, url, title: 'סרטון YouTube' }))
@@ -46,23 +57,22 @@ export default function MediaManager() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const res = await fetch('/api/media', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'video',
-        url: form.url,
-        title: form.title,
-        category: 'general',
-        duration_seconds: form.duration_seconds,
-        sort_order: form.sort_order,
-      }),
-    })
-    if (res.ok) {
-      setShowForm(false)
-      setForm({ url: '', title: '', duration_seconds: 60, sort_order: 0 })
-      loadItems()
+    const body = {
+      type: 'video',
+      url: form.url,
+      title: form.title,
+      category: 'general',
+      duration_seconds: 0,
+      sort_order: form.sort_order,
+      ...(editId ? { id: editId } : {}),
     }
+    await fetch('/api/media', {
+      method: editId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    resetForm()
+    loadItems()
   }
 
   async function toggleActive(item: MediaItem) {
@@ -93,7 +103,7 @@ export default function MediaManager() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">ניהול סרטונים</h2>
         <button
-          onClick={() => { setShowForm(true); setForm({ url: '', title: '', duration_seconds: 60, sort_order: 0 }) }}
+          onClick={() => { resetForm(); setShowForm(true) }}
           className="px-5 py-2.5 rounded-xl text-sm font-medium text-white"
           style={{ background: 'linear-gradient(135deg, #891738, #a01d45)' }}
         >
@@ -118,25 +128,17 @@ export default function MediaManager() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-500 mb-1.5">כותרת</label>
-              <input type="text" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                className="w-full p-2.5" style={inputStyle} placeholder="שם הסרטון..." />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-500 mb-1.5">משך הקרנה (שניות)</label>
-              <input type="number" value={form.duration_seconds} onChange={(e) => setForm((f) => ({ ...f, duration_seconds: parseInt(e.target.value) || 60 }))}
-                className="w-full p-2.5" style={inputStyle} />
-              <p className="text-xs text-gray-400 mt-1">אחרי כמה שניות לעבור לסרטון הבא</p>
-            </div>
+          <div>
+            <label className="block text-sm text-gray-500 mb-1.5">כותרת</label>
+            <input type="text" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              className="w-full p-2.5" style={inputStyle} placeholder="שם הסרטון..." />
           </div>
 
           <div className="flex gap-3 pt-2">
             <button type="submit" className="px-6 py-2.5 rounded-xl font-medium text-sm text-white" style={{ background: 'linear-gradient(135deg, #891738, #a01d45)' }}>
-              הוספה
+              {editId ? 'עדכון' : 'הוספה'}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2.5 rounded-xl text-sm" style={{ background: '#f0f0f0', color: '#555' }}>
+            <button type="button" onClick={resetForm} className="px-6 py-2.5 rounded-xl text-sm" style={{ background: '#f0f0f0', color: '#555' }}>
               ביטול
             </button>
           </div>
@@ -162,8 +164,9 @@ export default function MediaManager() {
               </div>
               <div className="p-4">
                 <h3 className="font-medium mb-1">{item.title || 'ללא כותרת'}</h3>
-                <p className="text-sm text-gray-400">{item.duration_seconds} שניות</p>
                 <div className="flex gap-2 mt-3">
+                  <button onClick={() => startEdit(item)} className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                    style={{ background: 'rgba(30,115,190,0.15)', color: '#1e73be' }}>עריכה</button>
                   <button onClick={() => toggleActive(item)}
                     className="px-3 py-1.5 rounded-lg text-xs font-medium"
                     style={{ background: item.active ? 'rgba(34,197,94,0.15)' : '#f0f0f0', color: item.active ? '#22c55e' : '#999' }}>

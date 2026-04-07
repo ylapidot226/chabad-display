@@ -19,15 +19,37 @@ function isYouTubeUrl(url: string): boolean {
   return getYouTubeId(url) !== null
 }
 
+// YouTube IFrame API loader - singleton
+let ytApiPromise: Promise<void> | null = null
+
+function ensureYouTubeApi(): Promise<void> {
+  if (typeof window !== 'undefined' && (window as any).YT?.Player) return Promise.resolve()
+  if (ytApiPromise) return ytApiPromise
+  ytApiPromise = new Promise((resolve) => {
+    const prev = (window as any).onYouTubeIframeAPIReady
+    ;(window as any).onYouTubeIframeAPIReady = () => {
+      prev?.()
+      resolve()
+    }
+    const tag = document.createElement('script')
+    tag.src = 'https://www.youtube.com/iframe_api'
+    document.head.appendChild(tag)
+  })
+  return ytApiPromise
+}
+
 export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const ytPlayerRef = useRef<any>(null)
+  const ytContainerRef = useRef<HTMLDivElement>(null)
 
   const goToNext = useCallback(() => {
     if (videos.length <= 1) return
     setCurrentIndex((prev) => (prev + 1) % videos.length)
   }, [videos.length])
 
+  // Regular video: ended event
   useEffect(() => {
     if (videos.length === 0) return
     const current = videos[currentIndex]
@@ -41,18 +63,75 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
     return () => video.removeEventListener('ended', handleEnded)
   }, [currentIndex, videos, goToNext])
 
-  // YouTube: auto-advance after duration
+  // YouTube: IFrame Player API for detecting video end
   useEffect(() => {
     if (videos.length === 0) return
     const current = videos[currentIndex]
-    if (!current || !isYouTubeUrl(current.url)) return
+    if (!current) return
 
-    const duration = (current.duration_seconds || 60) * 1000
-    const timer = setTimeout(goToNext, duration)
-    return () => clearTimeout(timer)
+    const youtubeId = getYouTubeId(current.url)
+    if (!youtubeId) return
+
+    let cancelled = false
+    let player: any = null
+
+    async function setup() {
+      await ensureYouTubeApi()
+      if (cancelled || !ytContainerRef.current) return
+
+      // Create fresh div for player
+      const container = ytContainerRef.current
+      const playerDiv = document.createElement('div')
+      playerDiv.style.width = '100%'
+      playerDiv.style.height = '100%'
+      container.innerHTML = ''
+      container.appendChild(playerDiv)
+
+      player = new (window as any).YT.Player(playerDiv, {
+        videoId: youtubeId,
+        width: '100%',
+        height: '100%',
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          showinfo: 0,
+          iv_load_policy: 3,
+          disablekb: 1,
+          fs: 0,
+          playsinline: 1,
+          loop: videos.length === 1 ? 1 : 0,
+          playlist: videos.length === 1 ? youtubeId : undefined,
+        },
+        events: {
+          onStateChange: (event: any) => {
+            if (event.data === 0) {
+              // 0 = ended
+              if (videos.length === 1) {
+                event.target.playVideo()
+              } else {
+                goToNext()
+              }
+            }
+          },
+        },
+      })
+      ytPlayerRef.current = player
+    }
+
+    setup()
+
+    return () => {
+      cancelled = true
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy() } catch {}
+        ytPlayerRef.current = null
+      }
+    }
   }, [currentIndex, videos, goToNext])
 
-  // Idle screen
+  // Idle screen (shown when no videos or during Shabbat/Yom Tov)
   if (videos.length === 0) {
     return (
       <div className="w-full h-full relative overflow-hidden" style={{ background: '#f8f7f4' }}>
@@ -101,17 +180,8 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
               alt=""
             />
           </div>
-          {/* YouTube embed - scaled up to hide controls */}
-          <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
-            <iframe
-              key={current.id}
-              src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&controls=0&loop=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
-              className="w-full h-full"
-              style={{ border: 'none', pointerEvents: 'none' }}
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            />
-          </div>
+          {/* YouTube player via IFrame API */}
+          <div ref={ytContainerRef} className="absolute inset-0 yt-player-wrap" />
           {/* Invisible overlay to block all interaction */}
           <div className="absolute inset-0 z-10" />
         </>
@@ -122,6 +192,7 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
           src={current.url}
           autoPlay
           playsInline
+          loop={videos.length === 1}
           className="w-full h-full object-cover"
         />
       )}

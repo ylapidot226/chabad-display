@@ -82,42 +82,6 @@ export default function DisplayScreen() {
   const videos = media.filter((m) => m.type === 'video')
   const images = media.filter((m) => m.type === 'image')
 
-  // On Shabbat/Yom Tov: no videos, only images/announcements
-  if (holyDay) {
-    return (
-      <div className="h-screen w-screen overflow-hidden flex flex-col no-scrollbar" style={{ background: '#f8f7f4' }}>
-        <TopBar />
-
-        <div className="flex-1 flex min-h-0">
-          {/* Left: Greeting + Announcements slider (larger area) */}
-          <div className="flex-1 relative min-w-0 flex flex-col">
-            {/* Greeting banner */}
-            {greeting && (
-              <div className="flex-shrink-0 flex items-center justify-center py-12" style={{
-                background: 'linear-gradient(135deg, #891738 0%, #a01d45 100%)',
-              }}>
-                <span className="text-6xl font-bold text-white">{greeting}</span>
-              </div>
-            )}
-            {/* Announcements/images fill the rest */}
-            <div className="flex-1 min-h-0">
-              <AnnouncementsSlider items={images} announcements={announcements} slideDuration={slideDuration} />
-            </div>
-          </div>
-
-          {/* Right sidebar: prayer times */}
-          <div className="w-[480px] flex-shrink-0 flex flex-col" style={{
-            borderRight: '1px solid rgba(0,0,0,0.06)',
-          }}>
-            <div className="flex-1">
-              <PrayerTimesPanel prayerTimes={prayerTimes} />
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col no-scrollbar" style={{ background: '#f8f7f4' }}>
       {/* Top bar */}
@@ -125,9 +89,20 @@ export default function DisplayScreen() {
 
       {/* Main layout */}
       <div className="flex-1 flex min-h-0">
-        {/* Left: Video - always playing */}
+        {/* Left: Video area (idle screen during Shabbat/Yom Tov) */}
         <div className="flex-[3] relative min-w-0">
-          <VideoPlayer videos={videos} />
+          <VideoPlayer videos={holyDay ? [] : videos} />
+          {/* Greeting overlay during Shabbat/Yom Tov */}
+          {holyDay && greeting && (
+            <div className="absolute bottom-10 left-0 right-0 flex justify-center z-10">
+              <div className="px-10 py-5 rounded-2xl" style={{
+                background: 'rgba(137,23,56,0.9)',
+                boxShadow: '0 4px 20px rgba(137,23,56,0.3)',
+              }}>
+                <span className="text-5xl font-bold text-white">{greeting}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right sidebar: announcements and prayer times */}

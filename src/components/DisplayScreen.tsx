@@ -8,7 +8,6 @@ import PrayerTimesPanel from './PrayerTimesPanel'
 import TopBar from './TopBar'
 import type { MediaItem, Announcement, PrayerTime, DisplaySettings } from '@/lib/types'
 
-// Error boundary to catch and display errors on TV screens
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
   constructor(props: { children: ReactNode }) {
     super(props)
@@ -21,17 +20,13 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: string |
     if (this.state.error) {
       return (
         <div style={{
-          height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column',
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', background: '#891738',
           color: '#fff', fontFamily: 'sans-serif', padding: '40px', textAlign: 'center',
         }}>
           <div style={{ fontSize: '48px', marginBottom: '20px' }}>בית חב״ד לימסול</div>
-          <div style={{ fontSize: '18px', opacity: 0.7, maxWidth: '600px', direction: 'ltr' }}>
-            Error: {this.state.error}
-          </div>
-          <div style={{ marginTop: '30px', fontSize: '14px', opacity: 0.5 }}>
-            Reloading in 30 seconds...
-          </div>
+          <div style={{ fontSize: '18px', opacity: 0.7, direction: 'ltr' }}>{this.state.error}</div>
         </div>
       )
     }
@@ -50,15 +45,13 @@ interface Props {
 }
 
 function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerTimes, initialSettings }: Props) {
-  // Start with server-provided data - no loading needed!
-  const [media, setMedia] = useState<MediaItem[]>(initialMedia)
-  const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements)
-  const [prayerTimes, setPrayerTimes] = useState<PrayerTime[]>(initialPrayerTimes)
-  const [settings] = useState<Record<string, string>>(initialSettings)
-  const [holyDay, setHolyDay] = useState(false)
-  const [greeting, setGreeting] = useState<string | null>(null)
+  var [media, setMedia] = useState<MediaItem[]>(initialMedia)
+  var [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements)
+  var [prayerTimes, setPrayerTimes] = useState<PrayerTime[]>(initialPrayerTimes)
+  var [settings] = useState<Record<string, string>>(initialSettings)
+  var [holyDay, setHolyDay] = useState(false)
+  var [greeting, setGreeting] = useState<string | null>(null)
 
-  // Background refresh every 30 seconds (if fetch works on this browser)
   useEffect(function() {
     function refresh() {
       try {
@@ -69,75 +62,84 @@ function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerT
             if (data.announcements) setAnnouncements(data.announcements)
             if (data.prayer_times) setPrayerTimes(data.prayer_times)
           })
-          .catch(function() { /* silent - we already have data from SSR */ })
-      } catch (e) {
-        /* fetch not supported on this browser - that's ok, we have SSR data */
-      }
+          .catch(function() {})
+      } catch (e) {}
     }
     var interval = setInterval(refresh, 30000)
     return function() { clearInterval(interval) }
   }, [])
 
-  // Check Shabbat/Yom Tov status every minute
   useEffect(function() {
     function checkHolyDay() {
       try {
         setHolyDay(isShabbatOrYomTov())
         setGreeting(getGreeting())
-      } catch (e) {
-        /* silent */
-      }
+      } catch (e) {}
     }
     checkHolyDay()
     var interval = setInterval(checkHolyDay, 60000)
     return function() { clearInterval(interval) }
   }, [])
 
-  // Auto-reload every 10 minutes to get fresh SSR data even if fetch doesn't work
   useEffect(function() {
-    var interval = setInterval(function() {
-      window.location.reload()
-    }, 600000)
+    var interval = setInterval(function() { window.location.reload() }, 600000)
     return function() { clearInterval(interval) }
   }, [])
 
   var slideDuration = 10
-  try { slideDuration = parseInt(settings.slide_duration || '10') || 10 } catch (e) { /* default */ }
+  try { slideDuration = parseInt(settings.slide_duration || '10') || 10 } catch (e) {}
 
   var videos = media.filter(function(m) { return m.type === 'video' })
   var images = media.filter(function(m) { return m.type === 'image' })
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col no-scrollbar" style={{ background: '#f8f7f4' }}>
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      display: 'flex', flexDirection: 'column',
+      background: '#f8f7f4', overflow: 'hidden',
+    }}>
+      {/* Top bar */}
       <TopBar />
 
-      <div className="flex-1 flex min-h-0">
-        {/* Video area (idle screen during Shabbat/Yom Tov) */}
-        <div className="flex-[3] relative min-w-0">
+      {/* Main content */}
+      <div style={{
+        display: 'flex', flexDirection: 'row',
+        flex: 1, minHeight: 0, overflow: 'hidden',
+      }}>
+        {/* Video area - takes most of the space */}
+        <div style={{
+          flex: 3, position: 'relative', minWidth: 0, overflow: 'hidden',
+        }}>
           <VideoPlayer videos={holyDay ? [] : videos} />
           {holyDay && greeting && (
-            <div className="absolute bottom-10 left-0 right-0 flex justify-center z-10">
-              <div className="px-10 py-5 rounded-2xl" style={{
+            <div style={{
+              position: 'absolute', bottom: '40px', left: 0, right: 0,
+              display: 'flex', justifyContent: 'center', zIndex: 10,
+            }}>
+              <div style={{
+                padding: '20px 40px', borderRadius: '16px',
                 background: 'rgba(137,23,56,0.9)',
                 boxShadow: '0 4px 20px rgba(137,23,56,0.3)',
               }}>
-                <span className="text-5xl font-bold text-white">{greeting}</span>
+                <span style={{ fontSize: '48px', fontWeight: 'bold', color: '#fff' }}>{greeting}</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Right sidebar */}
-        <div className="flex-[2] flex-shrink-0 flex flex-col" style={{
+        {/* Sidebar - announcements + prayer times */}
+        <div style={{
+          width: '420px', flexShrink: 0,
+          display: 'flex', flexDirection: 'column',
           borderRight: '1px solid rgba(0,0,0,0.06)',
-          maxWidth: '480px',
+          overflow: 'hidden',
         }}>
           {/* Announcements - top half */}
-          <div className="flex-1" style={{ minHeight: 0 }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <AnnouncementsSlider items={images} announcements={announcements} slideDuration={slideDuration} />
           </div>
           {/* Prayer times - bottom half */}
-          <div className="flex-1" style={{ minHeight: 0 }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <PrayerTimesPanel prayerTimes={prayerTimes} />
           </div>
         </div>

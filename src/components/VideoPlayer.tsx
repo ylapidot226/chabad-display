@@ -62,6 +62,8 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
       containerRef.current.appendChild(playerDiv)
 
       playerRef.current = new window.YT.Player('yt-player', {
+        width: '100%',
+        height: '100%',
         videoId: ytIdsRef.current[0],
         playerVars: {
           autoplay: 1,

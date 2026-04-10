@@ -91,10 +91,8 @@ export function isShabbat(): boolean {
   const day = nicosia.getDay()
   const timeStr = nicosia.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false })
 
-  // Friday after candle lighting
-  if (day === 5 && cachedTimes) {
-    if (timeStr >= cachedTimes.times.candles) return true
-  }
+  // All day Friday = Shabbat mode (preparing for Shabbat)
+  if (day === 5) return true
   // Saturday before tzeit
   if (day === 6 && cachedTimes) {
     if (timeStr < cachedTimes.times.tzeit85deg) return true

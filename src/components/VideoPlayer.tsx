@@ -17,10 +17,19 @@ function getYouTubeId(url: string): string | null {
 
 export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   var [currentIndex, setCurrentIndex] = useState(0)
-  var videoRef = useRef<HTMLVideoElement>(null)
 
-  // Timer that advances based on each video's actual duration
-  // Uses setInterval (reliable on LG TV) checking elapsed time every second
+  // Collect all YouTube IDs
+  var ytIds: string[] = []
+  var titleMap: Record<number, string> = {}
+  for (var v = 0; v < videos.length; v++) {
+    var id = getYouTubeId(videos[v].url)
+    if (id) {
+      titleMap[ytIds.length] = videos[v].title || ''
+      ytIds.push(id)
+    }
+  }
+
+  // Timer to estimate which video is playing (for progress dots and title)
   var indexRef = useRef(0)
   var advanceAtRef = useRef(0)
 
@@ -48,7 +57,7 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   }, []) // empty deps - set once like the clock
 
   // Idle screen
-  if (videos.length === 0) {
+  if (videos.length === 0 || ytIds.length === 0) {
     return (
       <div style={{
         width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
@@ -85,56 +94,49 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
     )
   }
 
+  // Build a single YouTube playlist URL - YouTube handles advancement natively
+  var playlistIds = ytIds.join(',')
+  var embedSrc = 'https://www.youtube.com/embed/' + ytIds[0]
+    + '?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0'
+    + '&iv_load_policy=3&disablekb=1&fs=0&playsinline=1'
+    + '&loop=1&playlist=' + playlistIds
+
   var safeIndex = currentIndex % videos.length
-  var current = videos[safeIndex]
-  var youtubeId = getYouTubeId(current.url)
+  var currentTitle = titleMap[safeIndex] || ''
 
   return (
     <div style={{
       width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
       background: '#1a1a1a',
     }}>
-      {youtubeId ? (
-        <>
-          {/* Blurred thumbnail background */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-            transform: 'scale(1.5)', filter: 'blur(40px)', opacity: 0.4,
-          }}>
-            <img
-              src={'https://img.youtube.com/vi/' + youtubeId + '/hqdefault.jpg'}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              alt=""
-            />
-          </div>
-          {/* YouTube iframe with enablejsapi for end detection */}
-          <iframe
-            key={'yt-' + safeIndex + '-' + youtubeId}
-            src={'https://www.youtube.com/embed/' + youtubeId + '?autoplay=1&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1' + (videos.length === 1 ? '&loop=1&playlist=' + youtubeId : '')}
-            style={{
-              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-              border: 'none', zIndex: 1,
-            }}
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-          />
-          {/* Overlay to block interaction */}
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2 }} />
-        </>
-      ) : (
-        <video
-          ref={videoRef}
-          key={'vid-' + current.id}
-          src={current.url}
-          autoPlay
-          playsInline
-          loop={videos.length === 1}
+      {/* Blurred thumbnail background based on estimated current video */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        transform: 'scale(1.5)', filter: 'blur(40px)', opacity: 0.4,
+      }}>
+        <img
+          src={'https://img.youtube.com/vi/' + ytIds[safeIndex % ytIds.length] + '/hqdefault.jpg'}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          alt=""
         />
-      )}
+      </div>
+
+      {/* Single YouTube iframe with playlist - YouTube handles advancement */}
+      <iframe
+        src={embedSrc}
+        style={{
+          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+          border: 'none', zIndex: 1,
+        }}
+        allow="autoplay; encrypted-media"
+        allowFullScreen
+      />
+
+      {/* Overlay to block interaction */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2 }} />
 
       {/* Now playing label */}
-      {current.title && (
+      {currentTitle && (
         <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10 }}>
           <div style={{
             padding: '8px 16px', borderRadius: '8px',
@@ -146,7 +148,7 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
               width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444',
               animation: 'breathe 2s ease-in-out infinite',
             }} />
-            <span style={{ fontSize: '13px', fontWeight: 500, color: '#333' }}>{current.title}</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: '#333' }}>{currentTitle}</span>
           </div>
         </div>
       )}

@@ -107,7 +107,7 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
           {/* YouTube iframe - mute=1 ensures autoplay works on all platforms */}
           <iframe
             key={'yt-' + safeIndex + '-' + youtubeId}
-            src={'https://www.youtube.com/embed/' + youtubeId + '?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1' + (videos.length === 1 ? '&loop=1&playlist=' + youtubeId : '')}
+            src={'https://www.youtube.com/embed/' + youtubeId + '?autoplay=1&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1' + (videos.length === 1 ? '&loop=1&playlist=' + youtubeId : '')}
             style={{
               position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
               border: 'none', zIndex: 1,

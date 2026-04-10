@@ -116,20 +116,7 @@ function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerT
             flex: 3, position: 'relative', minWidth: 0, overflow: 'hidden',
           }}>
             <VideoPlayer videos={holyDay ? [] : videos} />
-            {holyDay && greeting && (
-              <div style={{
-                position: 'absolute', bottom: '40px', left: 0, right: 0,
-                display: 'flex', justifyContent: 'center', zIndex: 10,
-              }}>
-                <div style={{
-                  padding: '20px 40px', borderRadius: '16px',
-                  background: 'rgba(137,23,56,0.9)',
-                  boxShadow: '0 4px 20px rgba(137,23,56,0.3)',
-                }}>
-                  <span style={{ fontSize: '48px', fontWeight: 'bold', color: '#fff' }}>{greeting}</span>
-                </div>
-              </div>
-            )}
+            {/* Greeting overlay removed */}
           </div>
 
           {/* Sidebar - 40% announcements only */}

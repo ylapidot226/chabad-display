@@ -1,74 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import type { PrayerTime } from '@/lib/types'
-import { fetchZmanim, getMinchaTime, getTzeit, getSunset, getCandleLightingTime, isShabbatOrYomTov } from '@/lib/zmanim'
 
 interface Props {
   prayerTimes: PrayerTime[]
 }
 
-var dayNames: Record<string, number> = {
-  'ראשון': 0, 'שני': 1, 'שלישי': 2, 'רביעי': 3, 'חמישי': 4, 'שישי': 5, 'שבת': 6
-}
-
-function getTodayStr(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Nicosia' })
-}
-
+// Prayer times are already filtered and resolved on the server.
+// This component just displays them.
 export default function PrayerTimesPanel({ prayerTimes }: Props) {
-  var [dynamicTimes, setDynamicTimes] = useState<Record<string, string>>({})
-  var [loaded, setLoaded] = useState(false)
-
-  useEffect(function() {
-    function loadTimes() {
-      fetchZmanim().then(function() {
-        setDynamicTimes({
-          mincha: getMinchaTime(),
-          arvit: getTzeit(),
-          sunset: getSunset(),
-          candles: getCandleLightingTime(),
-        })
-        setLoaded(true)
-      }).catch(function() { setLoaded(true) })
-    }
-    loadTimes()
-    var interval = setInterval(loadTimes, 3600000)
-    return function() { clearInterval(interval) }
-  }, [])
-
-  var today = new Date().getDay()
-  var todayStr = getTodayStr()
-
-  var hasDateSpecific = prayerTimes.some(function(pt) {
-    return pt.active && pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week) && pt.day_of_week === todayStr
-  })
-
-  var isHolyDay = loaded ? isShabbatOrYomTov() : false
-
-  var activeTimes = prayerTimes
-    .filter(function(pt) {
-      if (!pt.active) return false
-      if (pt.notes && pt.notes.indexOf('[WEEKDAY_ONLY]') !== -1 && isHolyDay) return false
-      if (pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week)) {
-        return pt.day_of_week === todayStr
-      }
-      if (hasDateSpecific) return false
-      if (!pt.day_of_week) return true
-      return dayNames[pt.day_of_week] === today
-    })
-    .map(function(pt) {
-      var time = pt.time
-      if (time === 'dynamic:mincha') time = dynamicTimes.mincha || '--:--'
-      else if (time === 'dynamic:arvit') time = dynamicTimes.arvit || '--:--'
-      else if (time === 'dynamic:sunset') time = dynamicTimes.sunset || '--:--'
-      else if (time === 'dynamic:candles') time = dynamicTimes.candles || '--:--'
-      var notes = pt.notes ? pt.notes.replace('[WEEKDAY_ONLY]', '').trim() : null
-      if (notes === '') notes = null
-      return { id: pt.id, name: pt.name, time: time, notes: notes, sort_order: pt.sort_order, active: pt.active, day_of_week: pt.day_of_week, created_at: pt.created_at }
-    })
-    .sort(function(a, b) { return a.time.localeCompare(b.time) })
-
   return (
     <div style={{
       width: '100%', height: '100%',
@@ -85,7 +25,7 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '0 16px 16px 16px', minHeight: 0 }}>
-        {activeTimes.map(function(pt, i) {
+        {prayerTimes.map(function(pt, i) {
           return (
             <div key={pt.id} style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -103,7 +43,7 @@ export default function PrayerTimesPanel({ prayerTimes }: Props) {
           )
         })}
 
-        {activeTimes.length === 0 && (
+        {prayerTimes.length === 0 && (
           <p style={{ fontSize: '14px', color: '#bbb', textAlign: 'center', padding: '16px 0' }}>
             אין זמני תפילות להיום
           </p>

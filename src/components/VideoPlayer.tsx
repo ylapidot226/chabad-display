@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { MediaItem } from '@/lib/types'
 
 function getYouTubeId(url: string): string | null {
@@ -15,131 +15,37 @@ function getYouTubeId(url: string): string | null {
   return null
 }
 
-// Extend window for YouTube IFrame API
-declare global {
-  interface Window {
-    YT: any
-    onYouTubeIframeAPIReady: (() => void) | undefined
-  }
-}
-
 export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   var [currentIndex, setCurrentIndex] = useState(0)
-  var playerRef = useRef<any>(null)
   var indexRef = useRef(0)
-  var ytIdsRef = useRef<string[]>([])
-  var containerRef = useRef<HTMLDivElement>(null)
+  var advanceAtRef = useRef(0)
 
-  // Collect all YouTube IDs
-  var ytIds: string[] = []
-  var titleMap: Record<number, string> = {}
-  for (var v = 0; v < videos.length; v++) {
-    var id = getYouTubeId(videos[v].url)
-    if (id) {
-      titleMap[ytIds.length] = videos[v].title || ''
-      ytIds.push(id)
-    }
-  }
-  ytIdsRef.current = ytIds
-
-  var playNext = useCallback(function() {
-    if (ytIdsRef.current.length <= 1) return
-    indexRef.current = (indexRef.current + 1) % ytIdsRef.current.length
-    setCurrentIndex(indexRef.current)
-    if (playerRef.current && playerRef.current.loadVideoById) {
-      playerRef.current.loadVideoById(ytIdsRef.current[indexRef.current])
-    }
-  }, [])
-
+  // Advancement timer - setInterval checking every second
   useEffect(function() {
-    if (ytIds.length === 0) return
+    if (videos.length <= 1) return
 
-    function initPlayer() {
-      if (!containerRef.current) return
-      // Create a div for the player inside the container
-      var playerDiv = document.createElement('div')
-      playerDiv.id = 'yt-player'
-      containerRef.current.appendChild(playerDiv)
-
-      playerRef.current = new window.YT.Player('yt-player', {
-        width: '100%',
-        height: '100%',
-        videoId: ytIdsRef.current[0],
-        playerVars: {
-          autoplay: 1,
-          mute: 1,
-          controls: 0,
-          modestbranding: 1,
-          rel: 0,
-          showinfo: 0,
-          iv_load_policy: 3,
-          disablekb: 1,
-          fs: 0,
-          playsinline: 1,
-        },
-        events: {
-          onStateChange: function(event: any) {
-            // 0 = ENDED
-            if (event.data === 0) {
-              playNext()
-            }
-          },
-          onError: function() {
-            // On error, skip to next video
-            playNext()
-          },
-        },
-      })
+    function getDuration(idx: number) {
+      var video = videos[idx % videos.length]
+      return (video && video.duration_seconds && video.duration_seconds > 0)
+        ? (video.duration_seconds + 5) * 1000
+        : 180000
     }
 
-    // Load YouTube IFrame API if not already loaded
-    if (window.YT && window.YT.Player) {
-      initPlayer()
-    } else {
-      window.onYouTubeIframeAPIReady = initPlayer
-      if (!document.getElementById('yt-api-script')) {
-        var script = document.createElement('script')
-        script.id = 'yt-api-script'
-        script.src = 'https://www.youtube.com/iframe_api'
-        document.head.appendChild(script)
+    advanceAtRef.current = Date.now() + getDuration(0)
+
+    var interval = setInterval(function() {
+      if (Date.now() >= advanceAtRef.current) {
+        indexRef.current = (indexRef.current + 1) % videos.length
+        setCurrentIndex(indexRef.current)
+        advanceAtRef.current = Date.now() + getDuration(indexRef.current)
       }
-    }
+    }, 1000)
 
-    // Fallback timer in case onStateChange doesn't fire (e.g., ad blockers)
-    var fallbackInterval: ReturnType<typeof setInterval> | null = null
-    if (ytIdsRef.current.length > 1) {
-      var advanceAt = Date.now() + 300000 // 5 min fallback
-
-      fallbackInterval = setInterval(function() {
-        // Check if player reports ended state, or if enough time passed
-        try {
-          var state = playerRef.current && playerRef.current.getPlayerState
-            ? playerRef.current.getPlayerState()
-            : -1
-          // 0 = ended, -1 = unstarted
-          if (state === 0) {
-            playNext()
-            advanceAt = Date.now() + 300000
-          }
-        } catch (e) {}
-        // Hard fallback - if 5 min passed, force advance
-        if (Date.now() >= advanceAt) {
-          playNext()
-          advanceAt = Date.now() + 300000
-        }
-      }, 2000)
-    }
-
-    return function() {
-      if (fallbackInterval) clearInterval(fallbackInterval)
-      if (playerRef.current && playerRef.current.destroy) {
-        try { playerRef.current.destroy() } catch (e) {}
-      }
-    }
+    return function() { clearInterval(interval) }
   }, []) // empty deps
 
   // Idle screen
-  if (videos.length === 0 || ytIds.length === 0) {
+  if (videos.length === 0) {
     return (
       <div style={{
         width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
@@ -176,40 +82,56 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
     )
   }
 
-  var safeIndex = currentIndex % ytIds.length
-  var currentTitle = titleMap[safeIndex] || ''
+  var safeIndex = currentIndex % videos.length
+  var current = videos[safeIndex]
+  var youtubeId = getYouTubeId(current.url)
 
   return (
     <div style={{
       width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
       background: '#1a1a1a',
     }}>
-      {/* Blurred thumbnail background */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-        transform: 'scale(1.5)', filter: 'blur(40px)', opacity: 0.4,
-      }}>
-        <img
-          src={'https://img.youtube.com/vi/' + ytIds[safeIndex] + '/hqdefault.jpg'}
+      {youtubeId ? (
+        <>
+          {/* Blurred thumbnail background */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            transform: 'scale(1.5)', filter: 'blur(40px)', opacity: 0.4,
+          }}>
+            <img
+              src={'https://img.youtube.com/vi/' + youtubeId + '/hqdefault.jpg'}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              alt=""
+            />
+          </div>
+          {/* YouTube iframe - mute=1 ensures autoplay works on all platforms */}
+          <iframe
+            key={'yt-' + safeIndex + '-' + youtubeId}
+            src={'https://www.youtube.com/embed/' + youtubeId + '?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1' + (videos.length === 1 ? '&loop=1&playlist=' + youtubeId : '')}
+            style={{
+              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+              border: 'none', zIndex: 1,
+            }}
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+          />
+          {/* Overlay to block interaction */}
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2 }} />
+        </>
+      ) : (
+        <video
+          key={'vid-' + current.id}
+          src={current.url}
+          autoPlay
+          muted
+          playsInline
+          loop={videos.length === 1}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          alt=""
         />
-      </div>
-
-      {/* YouTube Player API container */}
-      <div
-        ref={containerRef}
-        style={{
-          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          zIndex: 1,
-        }}
-      />
-
-      {/* Overlay to block interaction */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2 }} />
+      )}
 
       {/* Now playing label */}
-      {currentTitle && (
+      {current.title && (
         <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10 }}>
           <div style={{
             padding: '8px 16px', borderRadius: '8px',
@@ -221,18 +143,18 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
               width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444',
               animation: 'breathe 2s ease-in-out infinite',
             }} />
-            <span style={{ fontSize: '13px', fontWeight: 500, color: '#333' }}>{currentTitle}</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: '#333' }}>{current.title}</span>
           </div>
         </div>
       )}
 
       {/* Progress dots */}
-      {ytIds.length > 1 && (
+      {videos.length > 1 && (
         <div style={{
           position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
           display: 'flex', gap: '6px', zIndex: 10,
         }}>
-          {ytIds.map(function(_, i) {
+          {videos.map(function(_, i) {
             return (
               <div key={i} style={{
                 width: '8px', height: '8px', borderRadius: '50%',

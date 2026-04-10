@@ -15,17 +15,41 @@ function getYouTubeId(url: string): string | null {
   return null
 }
 
+function buildYTUrl(videoId: string, solo: boolean): string {
+  return 'https://www.youtube.com/embed/' + videoId
+    + '?autoplay=1&controls=0&modestbranding=1&rel=0&showinfo=0'
+    + '&iv_load_policy=3&disablekb=1&fs=0&playsinline=1'
+    + (solo ? '&loop=1&playlist=' + videoId : '')
+}
+
 export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   var [currentIndex, setCurrentIndex] = useState(0)
+  var iframeRef = useRef<HTMLIFrameElement>(null)
   var indexRef = useRef(0)
   var advanceAtRef = useRef(0)
+  var videosRef = useRef(videos)
+  videosRef.current = videos
 
-  // Advancement timer - setInterval checking every second
+  // Build ytIds list
+  var ytIds: string[] = []
+  var titleMap: Record<number, string> = {}
+  for (var v = 0; v < videos.length; v++) {
+    var id = getYouTubeId(videos[v].url)
+    if (id) {
+      titleMap[ytIds.length] = videos[v].title || ''
+      ytIds.push(id)
+    }
+  }
+  var ytIdsRef = useRef(ytIds)
+  ytIdsRef.current = ytIds
+
+  // Advancement: directly set iframe.src on the SAME iframe element (no React key swap)
+  // This avoids webOS blocking autoplay on newly created iframes
   useEffect(function() {
     if (videos.length <= 1) return
 
     function getDuration(idx: number) {
-      var video = videos[idx % videos.length]
+      var video = videosRef.current[idx % videosRef.current.length]
       return (video && video.duration_seconds && video.duration_seconds > 0)
         ? (video.duration_seconds + 5) * 1000
         : 180000
@@ -35,8 +59,18 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
 
     var interval = setInterval(function() {
       if (Date.now() >= advanceAtRef.current) {
-        indexRef.current = (indexRef.current + 1) % videos.length
+        indexRef.current = (indexRef.current + 1) % ytIdsRef.current.length
         setCurrentIndex(indexRef.current)
+
+        // Directly update iframe src - same DOM element, no destroy/create
+        var iframe = iframeRef.current
+        if (iframe) {
+          var nextId = ytIdsRef.current[indexRef.current]
+          if (nextId) {
+            iframe.src = buildYTUrl(nextId, ytIdsRef.current.length <= 1)
+          }
+        }
+
         advanceAtRef.current = Date.now() + getDuration(indexRef.current)
       }
     }, 1000)
@@ -45,7 +79,7 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   }, []) // empty deps
 
   // Idle screen
-  if (videos.length === 0) {
+  if (videos.length === 0 || ytIds.length === 0) {
     return (
       <div style={{
         width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
@@ -82,56 +116,44 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
     )
   }
 
-  var safeIndex = currentIndex % videos.length
-  var current = videos[safeIndex]
-  var youtubeId = getYouTubeId(current.url)
+  var safeIndex = currentIndex % ytIds.length
+  var currentYtId = ytIds[safeIndex]
+  var currentTitle = titleMap[safeIndex] || ''
 
   return (
     <div style={{
       width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
       background: '#1a1a1a',
     }}>
-      {youtubeId ? (
-        <>
-          {/* Blurred thumbnail background */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-            transform: 'scale(1.5)', filter: 'blur(40px)', opacity: 0.4,
-          }}>
-            <img
-              src={'https://img.youtube.com/vi/' + youtubeId + '/hqdefault.jpg'}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              alt=""
-            />
-          </div>
-          {/* YouTube iframe - mute=1 ensures autoplay works on all platforms */}
-          <iframe
-            key={'yt-' + safeIndex + '-' + youtubeId}
-            src={'https://www.youtube.com/embed/' + youtubeId + '?autoplay=1&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1' + (videos.length === 1 ? '&loop=1&playlist=' + youtubeId : '')}
-            style={{
-              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-              border: 'none', zIndex: 1,
-            }}
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-          />
-          {/* Overlay to block interaction */}
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2 }} />
-        </>
-      ) : (
-        <video
-          key={'vid-' + current.id}
-          src={current.url}
-          autoPlay
-          muted
-          playsInline
-          loop={videos.length === 1}
+      {/* Blurred thumbnail background */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        transform: 'scale(1.5)', filter: 'blur(40px)', opacity: 0.4,
+      }}>
+        <img
+          src={'https://img.youtube.com/vi/' + currentYtId + '/hqdefault.jpg'}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          alt=""
         />
-      )}
+      </div>
+
+      {/* Single persistent iframe - src updated directly via ref, never destroyed */}
+      <iframe
+        ref={iframeRef}
+        src={buildYTUrl(ytIds[0], ytIds.length <= 1)}
+        style={{
+          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+          border: 'none', zIndex: 1,
+        }}
+        allow="autoplay; encrypted-media"
+        allowFullScreen
+      />
+
+      {/* Overlay to block interaction */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2 }} />
 
       {/* Now playing label */}
-      {current.title && (
+      {currentTitle && (
         <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10 }}>
           <div style={{
             padding: '8px 16px', borderRadius: '8px',
@@ -143,18 +165,18 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
               width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444',
               animation: 'breathe 2s ease-in-out infinite',
             }} />
-            <span style={{ fontSize: '13px', fontWeight: 500, color: '#333' }}>{current.title}</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: '#333' }}>{currentTitle}</span>
           </div>
         </div>
       )}
 
       {/* Progress dots */}
-      {videos.length > 1 && (
+      {ytIds.length > 1 && (
         <div style={{
           position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
           display: 'flex', gap: '6px', zIndex: 10,
         }}>
-          {videos.map(function(_, i) {
+          {ytIds.map(function(_, i) {
             return (
               <div key={i} style={{
                 width: '8px', height: '8px', borderRadius: '50%',

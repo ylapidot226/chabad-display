@@ -103,45 +103,47 @@ function DisplayScreenInner({ initialMedia, initialAnnouncements, initialPrayerT
 
       {/* Main content */}
       <div style={{
-        display: 'flex', flexDirection: 'row',
+        display: 'flex', flexDirection: 'column',
         flex: 1, minHeight: 0, overflow: 'hidden',
       }}>
-        {/* Video area - 60% */}
+        {/* Upper area: video + announcements */}
         <div style={{
-          flex: 3, position: 'relative', minWidth: 0, overflow: 'hidden',
+          display: 'flex', flexDirection: 'row',
+          flex: 1, minHeight: 0, overflow: 'hidden',
         }}>
-          <VideoPlayer videos={holyDay ? [] : videos} />
-          {holyDay && greeting && (
-            <div style={{
-              position: 'absolute', bottom: '40px', left: 0, right: 0,
-              display: 'flex', justifyContent: 'center', zIndex: 10,
-            }}>
+          {/* Video area - 60% */}
+          <div style={{
+            flex: 3, position: 'relative', minWidth: 0, overflow: 'hidden',
+          }}>
+            <VideoPlayer videos={holyDay ? [] : videos} />
+            {holyDay && greeting && (
               <div style={{
-                padding: '20px 40px', borderRadius: '16px',
-                background: 'rgba(137,23,56,0.9)',
-                boxShadow: '0 4px 20px rgba(137,23,56,0.3)',
+                position: 'absolute', bottom: '40px', left: 0, right: 0,
+                display: 'flex', justifyContent: 'center', zIndex: 10,
               }}>
-                <span style={{ fontSize: '48px', fontWeight: 'bold', color: '#fff' }}>{greeting}</span>
+                <div style={{
+                  padding: '20px 40px', borderRadius: '16px',
+                  background: 'rgba(137,23,56,0.9)',
+                  boxShadow: '0 4px 20px rgba(137,23,56,0.3)',
+                }}>
+                  <span style={{ fontSize: '48px', fontWeight: 'bold', color: '#fff' }}>{greeting}</span>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        {/* Sidebar - 40% */}
-        <div style={{
-          flex: 2, display: 'flex', flexDirection: 'column',
-          borderRight: '1px solid rgba(0,0,0,0.06)',
-          overflow: 'hidden',
-        }}>
-          {/* Announcements */}
-          <div style={{ flex: 3, minHeight: 0, overflow: 'hidden' }}>
+          {/* Sidebar - 40% announcements only */}
+          <div style={{
+            flex: 2, display: 'flex', flexDirection: 'column',
+            borderRight: '1px solid rgba(0,0,0,0.06)',
+            overflow: 'hidden',
+          }}>
             <AnnouncementsSlider items={images} announcements={announcements} slideDuration={slideDuration} />
           </div>
-          {/* Prayer times */}
-          <div style={{ flex: 2, minHeight: 0, overflow: 'hidden' }}>
-            <PrayerTimesPanel prayerTimes={prayerTimes} />
-          </div>
         </div>
+
+        {/* Bottom row: prayer times */}
+        <PrayerTimesPanel prayerTimes={prayerTimes} />
       </div>
     </div>
   )

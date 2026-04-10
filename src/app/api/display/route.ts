@@ -36,9 +36,11 @@ async function filterAndResolvePrayerTimes(prayerTimes: PrayerTimeRow[]) {
 
   const now = new Date()
   const nicosia = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Nicosia' }))
-  const today = nicosia.getDay()
+  const calendarDay = nicosia.getDay()
   const todayStr = getTodayStr()
   const isHolyDay = isShabbatOrYomTov()
+  // Friday after candle lighting = halachically Shabbat, show Shabbat times
+  const today = (isHolyDay && calendarDay === 5) ? 6 : calendarDay
 
   // Check if there are date-specific entries for today
   const hasDateSpecific = prayerTimes.some((pt) =>
@@ -50,6 +52,8 @@ async function filterAndResolvePrayerTimes(prayerTimes: PrayerTimeRow[]) {
       if (!pt.active) return false
       // Hide [WEEKDAY_ONLY] on Shabbat/Yom Tov
       if (pt.notes && pt.notes.indexOf('[WEEKDAY_ONLY]') !== -1 && isHolyDay) return false
+      // Hide weekday-only evening prayers on Friday (evening will be Shabbat)
+      if (pt.notes && pt.notes.indexOf('[HIDE_FRIDAY]') !== -1 && calendarDay === 5) return false
 
       // Date-specific entry: only show on that date
       if (pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week)) {
@@ -74,7 +78,7 @@ async function filterAndResolvePrayerTimes(prayerTimes: PrayerTimeRow[]) {
       else if (time === 'dynamic:candles') time = dynamicTimes.candles || '--:--'
 
       // Clean up notes
-      let notes = pt.notes ? pt.notes.replace('[WEEKDAY_ONLY]', '').trim() : null
+      let notes = pt.notes ? pt.notes.replace('[WEEKDAY_ONLY]', '').replace('[HIDE_FRIDAY]', '').trim() : null
       if (notes === '') notes = null
 
       return { ...pt, time, notes }

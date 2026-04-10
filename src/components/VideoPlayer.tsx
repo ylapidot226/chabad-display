@@ -18,88 +18,16 @@ function getYouTubeId(url: string): string | null {
 export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   var [currentIndex, setCurrentIndex] = useState(0)
   var videoRef = useRef<HTMLVideoElement>(null)
-  var iframeRef = useRef<HTMLIFrameElement>(null)
 
-  function goToNext() {
-    setCurrentIndex(function(prev) { return (prev + 1) % videos.length })
-  }
-
-  // Listen for YouTube postMessage events (video ended)
-  useEffect(function() {
-    if (videos.length === 0) return
-
-    function handleMessage(event: MessageEvent) {
-      try {
-        // YouTube sends JSON messages about player state
-        var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
-        // State 0 = ended
-        if (data && data.event === 'onStateChange' && data.info === 0) {
-          goToNext()
-        }
-        // Also check for the nested info format
-        if (data && data.event === 'infoDelivery' && data.info && data.info.playerState === 0) {
-          goToNext()
-        }
-      } catch (e) {
-        // Not a JSON message, ignore
-      }
-    }
-
-    window.addEventListener('message', handleMessage)
-    return function() { window.removeEventListener('message', handleMessage) }
-  }, [videos.length, currentIndex])
-
-  // After iframe loads, tell YouTube we want to listen for events
-  function onIframeLoad() {
-    try {
-      if (iframeRef.current && iframeRef.current.contentWindow) {
-        // Send "listening" command to YouTube iframe
-        iframeRef.current.contentWindow.postMessage(JSON.stringify({
-          event: 'listening',
-          id: 1,
-          channel: 'widget'
-        }), '*')
-        // Also send command format
-        iframeRef.current.contentWindow.postMessage(JSON.stringify({
-          event: 'command',
-          func: 'addEventListener',
-          args: ['onStateChange']
-        }), '*')
-      }
-    } catch (e) {
-      // Cross-origin restriction, ignore
-    }
-  }
-
-  // Fallback timer for YouTube - if postMessage doesn't work, advance after 4 minutes
+  // Single setInterval - exact same pattern as the working clock
+  // Set once on mount, never re-created
   useEffect(function() {
     if (videos.length <= 1) return
-    var current = videos[currentIndex % videos.length]
-    if (!current || !getYouTubeId(current.url)) return
-
-    var fallbackTimer = setTimeout(function() {
-      goToNext()
-    }, 240000) // 4 minutes fallback
-
-    return function() { clearTimeout(fallbackTimer) }
-  }, [currentIndex, videos.length])
-
-  // Regular video: ended event
-  useEffect(function() {
-    if (videos.length === 0) return
-    var current = videos[currentIndex % videos.length]
-    if (!current || getYouTubeId(current.url)) return
-
-    var video = videoRef.current
-    if (!video) return
-
-    var handleEnded = function() {
-      goToNext()
-    }
-    video.addEventListener('ended', handleEnded)
-    var v = video
-    return function() { v.removeEventListener('ended', handleEnded) }
-  }, [currentIndex, videos.length])
+    var interval = setInterval(function() {
+      setCurrentIndex(function(prev) { return (prev + 1) % videos.length })
+    }, 180000) // 3 minutes
+    return function() { clearInterval(interval) }
+  }, []) // empty deps - set once like the clock
 
   // Idle screen
   if (videos.length === 0) {
@@ -163,16 +91,14 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
           </div>
           {/* YouTube iframe with enablejsapi for end detection */}
           <iframe
-            ref={iframeRef}
             key={'yt-' + safeIndex + '-' + youtubeId}
-            src={'https://www.youtube.com/embed/' + youtubeId + '?autoplay=1&enablejsapi=1&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1' + (videos.length === 1 ? '&loop=1&playlist=' + youtubeId : '')}
+            src={'https://www.youtube.com/embed/' + youtubeId + '?autoplay=1&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&playsinline=1' + (videos.length === 1 ? '&loop=1&playlist=' + youtubeId : '')}
             style={{
               position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
               border: 'none', zIndex: 1,
             }}
             allow="autoplay; encrypted-media"
             allowFullScreen
-            onLoad={onIframeLoad}
           />
           {/* Overlay to block interaction */}
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2 }} />

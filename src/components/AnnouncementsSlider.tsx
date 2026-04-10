@@ -20,14 +20,16 @@ export default function AnnouncementsSlider({ items, announcements, slideDuratio
 
   var totalSlides = items.length + textAnnouncements.length
 
-  // Simple interval timer - same pattern as the working clock
+  // Simple interval - exact same pattern as the working clock
+  // Set once on mount, never re-created
   useEffect(function() {
     if (totalSlides <= 1) return
+    var total = totalSlides
     var interval = setInterval(function() {
-      setCurrentIndex(function(prev) { return (prev + 1) % totalSlides })
+      setCurrentIndex(function(prev) { return (prev + 1) % total })
     }, 25000)
     return function() { clearInterval(interval) }
-  }, [totalSlides, slideDuration])
+  }, []) // empty deps - set once like the clock
 
   if (totalSlides === 0) {
     return (

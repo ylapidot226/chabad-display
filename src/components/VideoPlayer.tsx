@@ -19,14 +19,35 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   var [currentIndex, setCurrentIndex] = useState(0)
   var videoRef = useRef<HTMLVideoElement>(null)
 
-  // Single setInterval - exact same pattern as the working clock
-  // Set once on mount, never re-created
+  // Timer that advances based on each video's actual duration
+  // Uses setTimeout chain managed by a ref, started once on mount
+  var timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  var indexRef = useRef(0)
+
   useEffect(function() {
     if (videos.length <= 1) return
-    var interval = setInterval(function() {
-      setCurrentIndex(function(prev) { return (prev + 1) % videos.length })
-    }, 180000) // 3 minutes
-    return function() { clearInterval(interval) }
+
+    function scheduleNext() {
+      var idx = indexRef.current % videos.length
+      var video = videos[idx]
+      var ytId = video ? getYouTubeId(video.url) : null
+      // Use actual duration + 5 sec buffer, or 180s fallback
+      var durationMs = (video && video.duration_seconds && video.duration_seconds > 0)
+        ? (video.duration_seconds + 5) * 1000
+        : 180000
+
+      timerRef.current = setTimeout(function() {
+        indexRef.current = (indexRef.current + 1) % videos.length
+        setCurrentIndex(indexRef.current)
+        scheduleNext() // schedule the next one
+      }, durationMs)
+    }
+
+    scheduleNext()
+
+    return function() {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
   }, []) // empty deps - set once like the clock
 
   // Idle screen

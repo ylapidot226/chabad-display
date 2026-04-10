@@ -1,5 +1,6 @@
 import { getServiceClient } from '@/lib/supabase'
 import { fetchZmanim, getMinchaTime, getTzeit, getSunset, getCandleLightingTime, isShabbatOrYomTov } from '@/lib/zmanim'
+import { getYouTubeId, getYouTubeDuration } from '@/lib/youtube'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,8 +102,22 @@ export async function GET() {
   // Filter and resolve prayer times on the server
   const filteredPrayerTimes = await filterAndResolvePrayerTimes(prayerTimesRes.data || [])
 
+  // Fetch actual YouTube video durations
+  const mediaWithDurations = await Promise.all(
+    (mediaRes.data || []).map(async (item: { type: string; url: string; duration_seconds: number }) => {
+      if (item.type === 'video') {
+        const ytId = getYouTubeId(item.url)
+        if (ytId && (!item.duration_seconds || item.duration_seconds <= 0)) {
+          const duration = await getYouTubeDuration(ytId)
+          return { ...item, duration_seconds: duration }
+        }
+      }
+      return item
+    })
+  )
+
   return Response.json({
-    media: mediaRes.data || [],
+    media: mediaWithDurations,
     announcements: announcementsRes.data || [],
     prayer_times: filteredPrayerTimes,
     settings: settings,

@@ -1,5 +1,6 @@
 import { getServiceClient } from '@/lib/supabase'
 import { fetchZmanim, getMinchaTime, getTzeit, getSunset, getCandleLightingTime, isShabbatOrYomTov } from '@/lib/zmanim'
+import { getYouTubeId, getYouTubeDuration } from '@/lib/youtube'
 import DisplayScreen from '@/components/DisplayScreen'
 import type { MediaItem, Announcement, PrayerTime } from '@/lib/types'
 
@@ -80,9 +81,23 @@ export default async function Home() {
 
   const filteredPrayerTimes = await filterAndResolvePrayerTimes((prayerTimesRes.data || []) as PrayerTime[])
 
+  // Fetch actual YouTube video durations
+  const mediaWithDurations = await Promise.all(
+    ((mediaRes.data || []) as MediaItem[]).map(async (item) => {
+      if (item.type === 'video') {
+        const ytId = getYouTubeId(item.url)
+        if (ytId && (!item.duration_seconds || item.duration_seconds <= 0)) {
+          const duration = await getYouTubeDuration(ytId)
+          return { ...item, duration_seconds: duration }
+        }
+      }
+      return item
+    })
+  )
+
   return (
     <DisplayScreen
-      initialMedia={(mediaRes.data || []) as MediaItem[]}
+      initialMedia={mediaWithDurations}
       initialAnnouncements={(announcementsRes.data || []) as Announcement[]}
       initialPrayerTimes={filteredPrayerTimes}
       initialSettings={settings}

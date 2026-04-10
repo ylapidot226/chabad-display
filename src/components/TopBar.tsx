@@ -5,29 +5,26 @@ import { useState, useEffect } from 'react'
 var hebrewDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
 var hebrewMonths = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
 
-function pad(n: number): string {
-  return n < 10 ? '0' + n : '' + n
-}
+var TZ = 'Asia/Nicosia'
 
 function getTime(): string {
   var now = new Date()
-  return pad(now.getHours()) + ':' + pad(now.getMinutes())
+  return now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ })
 }
 
 function getGregDate(): string {
   var now = new Date()
-  var dayName = 'יום ' + hebrewDays[now.getDay()]
-  return dayName + ', ' + now.getDate() + ' ב' + hebrewMonths[now.getMonth()]
+  var nicosia = new Date(now.toLocaleString('en-US', { timeZone: TZ }))
+  var dayName = 'יום ' + hebrewDays[nicosia.getDay()]
+  return dayName + ', ' + nicosia.getDate() + ' ב' + hebrewMonths[nicosia.getMonth()]
 }
 
 function getHebrewDate(): string {
   try {
     var now = new Date()
-    // Try Intl first
-    var formatter = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric' })
+    var formatter = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ })
     return formatter.format(now)
   } catch (e) {
-    // Fallback - just return empty
     return ''
   }
 }

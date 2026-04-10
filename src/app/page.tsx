@@ -1,5 +1,5 @@
 import { getServiceClient } from '@/lib/supabase'
-import { fetchZmanim, getMinchaTime, getTzeit, getSunset, getCandleLightingTime, isShabbatOrYomTov } from '@/lib/zmanim'
+import { fetchZmanim, isShabbatOrYomTov } from '@/lib/zmanim'
 import { getYouTubeId, getYouTubeDuration } from '@/lib/youtube'
 import DisplayScreen from '@/components/DisplayScreen'
 import type { MediaItem, Announcement, PrayerTime } from '@/lib/types'
@@ -10,60 +10,101 @@ const dayNames: Record<string, number> = {
   'ראשון': 0, 'שני': 1, 'שלישי': 2, 'רביעי': 3, 'חמישי': 4, 'שישי': 5, 'שבת': 6
 }
 
-function getTodayStr(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Nicosia' })
+function computeDynamicTimes(zmanim: { sunset: string; tzeit85deg: string; candles: string }) {
+  const [h, m] = zmanim.sunset.split(':').map(Number)
+  const totalMin = h * 60 + m - 15
+  const mincha = Math.floor(totalMin / 60).toString().padStart(2, '0') + ':' + (totalMin % 60).toString().padStart(2, '0')
+  return { mincha, arvit: zmanim.tzeit85deg, sunset: zmanim.sunset, candles: zmanim.candles }
+}
+
+function resolveDynamic(time: string, dynTimes: Record<string, string>): string {
+  if (time === 'dynamic:mincha') return dynTimes.mincha || '--:--'
+  if (time === 'dynamic:arvit') return dynTimes.arvit || '--:--'
+  if (time === 'dynamic:sunset') return dynTimes.sunset || '--:--'
+  if (time === 'dynamic:candles') return dynTimes.candles || '--:--'
+  return time
+}
+
+function cleanNotes(notes: string | null): string | null {
+  if (!notes) return null
+  let clean = notes.replace('[WEEKDAY_ONLY]', '').replace('[HIDE_FRIDAY]', '').trim()
+  return clean === '' ? null : clean
+}
+
+function filterByDay(
+  prayerTimes: PrayerTime[],
+  dayNum: number,
+  dateStr: string,
+  isHolyDay: boolean,
+  calendarDay: number,
+) {
+  const hasDateSpecific = prayerTimes.some((pt) =>
+    pt.active && pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week) && pt.day_of_week === dateStr
+  )
+
+  return prayerTimes.filter((pt) => {
+    if (!pt.active) return false
+    if (pt.notes && pt.notes.indexOf('[WEEKDAY_ONLY]') !== -1 && isHolyDay) return false
+    if (pt.notes && pt.notes.indexOf('[HIDE_FRIDAY]') !== -1 && calendarDay === 5) return false
+
+    if (pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week)) {
+      return pt.day_of_week === dateStr
+    }
+    if (hasDateSpecific) return false
+    if (!pt.day_of_week) return true
+    return dayNames[pt.day_of_week] === dayNum
+  })
 }
 
 async function filterAndResolvePrayerTimes(prayerTimes: PrayerTime[]) {
-  await fetchZmanim()
-
-  const dynamicTimes: Record<string, string> = {
-    mincha: getMinchaTime(),
-    arvit: getTzeit(),
-    sunset: getSunset(),
-    candles: getCandleLightingTime(),
-  }
-
   const now = new Date()
   const nicosia = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Nicosia' }))
   const calendarDay = nicosia.getDay()
-  const todayStr = getTodayStr()
+  const todayStr = nicosia.toLocaleDateString('en-CA')
+  const currentTime = nicosia.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+  // Today's zmanim
+  const todayZmanim = await fetchZmanim(todayStr)
   const isHolyDay = isShabbatOrYomTov()
-  // Friday after candle lighting = halachically Shabbat, show Shabbat times
   const today = (isHolyDay && calendarDay === 5) ? 6 : calendarDay
+  const todayDynamic = computeDynamicTimes(todayZmanim)
 
-  const hasDateSpecific = prayerTimes.some((pt) =>
-    pt.active && pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week) && pt.day_of_week === todayStr
-  )
-
-  return prayerTimes
-    .filter((pt) => {
-      if (!pt.active) return false
-      if (pt.notes && pt.notes.indexOf('[WEEKDAY_ONLY]') !== -1 && isHolyDay) return false
-      // Hide weekday-only evening prayers on Friday (evening will be Shabbat)
-      if (pt.notes && pt.notes.indexOf('[HIDE_FRIDAY]') !== -1 && calendarDay === 5) return false
-
-      if (pt.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pt.day_of_week)) {
-        return pt.day_of_week === todayStr
-      }
-
-      if (hasDateSpecific) return false
-      if (!pt.day_of_week) return true
-      return dayNames[pt.day_of_week] === today
-    })
-    .map((pt) => {
-      let time = pt.time
-      if (time === 'dynamic:mincha') time = dynamicTimes.mincha || '--:--'
-      else if (time === 'dynamic:arvit') time = dynamicTimes.arvit || '--:--'
-      else if (time === 'dynamic:sunset') time = dynamicTimes.sunset || '--:--'
-      else if (time === 'dynamic:candles') time = dynamicTimes.candles || '--:--'
-
-      let notes = pt.notes ? pt.notes.replace('[WEEKDAY_ONLY]', '').replace('[HIDE_FRIDAY]', '').trim() : null
-      if (notes === '') notes = null
-
-      return { ...pt, time, notes }
-    })
+  // Filter today's times and remove past ones
+  const todayTimes = filterByDay(prayerTimes, today, todayStr, isHolyDay, calendarDay)
+    .map((pt) => ({
+      ...pt,
+      time: resolveDynamic(pt.time, todayDynamic),
+      notes: cleanNotes(pt.notes),
+      is_tomorrow: false,
+    }))
+    .filter((pt) => pt.time >= currentTime)
     .sort((a, b) => a.time.localeCompare(b.time))
+
+  // Tomorrow's info
+  const tomorrowDate = new Date(nicosia)
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+  const tomorrowCalendarDay = tomorrowDate.getDay()
+  const tomorrowStr = tomorrowDate.toLocaleDateString('en-CA')
+  const tomorrowDayNum = tomorrowCalendarDay
+
+  const tomorrowZmanim = await fetchZmanim(tomorrowStr)
+  const tomorrowDynamic = computeDynamicTimes(tomorrowZmanim)
+  const tomorrowIsHolyDay = tomorrowCalendarDay === 6
+
+  // Restore today's zmanim cache for sync getters
+  await fetchZmanim(todayStr)
+
+  const tomorrowTimes = filterByDay(prayerTimes, tomorrowDayNum, tomorrowStr, tomorrowIsHolyDay, tomorrowCalendarDay)
+    .map((pt) => ({
+      ...pt,
+      id: pt.id + 10000,
+      time: resolveDynamic(pt.time, tomorrowDynamic),
+      notes: cleanNotes(pt.notes),
+      is_tomorrow: true,
+    }))
+    .sort((a, b) => a.time.localeCompare(b.time))
+
+  return [...todayTimes, ...tomorrowTimes]
 }
 
 export default async function Home() {

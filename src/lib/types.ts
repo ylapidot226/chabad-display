@@ -30,6 +30,7 @@ export interface PrayerTime {
   sort_order: number
   active: boolean
   created_at: string
+  is_tomorrow?: boolean
 }
 
 export interface DisplaySettings {

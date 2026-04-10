@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getServiceClient } from '@/lib/supabase'
+import { getYouTubeId, getYouTubeDuration } from '@/lib/youtube'
 
 export async function GET() {
   const supabase = getServiceClient()
@@ -14,6 +15,16 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
+
+  // Auto-detect YouTube video duration
+  if (body.type === 'video' && body.url) {
+    const ytId = getYouTubeId(body.url)
+    if (ytId) {
+      const duration = await getYouTubeDuration(ytId)
+      body.duration_seconds = duration
+    }
+  }
+
   const supabase = getServiceClient()
   const { data, error } = await supabase
     .from('media')

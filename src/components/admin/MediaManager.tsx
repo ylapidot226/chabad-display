@@ -164,6 +164,9 @@ export default function MediaManager() {
               </div>
               <div className="p-4">
                 <h3 className="font-medium mb-1">{item.title || 'ללא כותרת'}</h3>
+                {item.duration_seconds > 0 && (
+                  <p className="text-sm text-gray-400">{Math.floor(item.duration_seconds / 60)}:{(item.duration_seconds % 60).toString().padStart(2, '0')} דקות</p>
+                )}
                 <div className="flex gap-2 mt-3">
                   <button onClick={() => startEdit(item)} className="px-3 py-1.5 rounded-lg text-xs font-medium"
                     style={{ background: 'rgba(30,115,190,0.15)', color: '#1e73be' }}>עריכה</button>

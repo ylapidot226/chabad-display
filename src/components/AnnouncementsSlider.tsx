@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import type { MediaItem, Announcement } from '@/lib/types'
 
 interface Props {
@@ -11,31 +11,23 @@ interface Props {
 
 export default function AnnouncementsSlider({ items, announcements, slideDuration }: Props) {
   var [currentIndex, setCurrentIndex] = useState(0)
-  var [isVisible, setIsVisible] = useState(true)
 
   var textAnnouncements = announcements.filter(function(a) {
-    var now = new Date()
     if (!a.active) return false
-    if (a.ends_at && new Date(a.ends_at) < now) return false
+    if (a.ends_at && new Date(a.ends_at) < new Date()) return false
     return true
   })
 
   var totalSlides = items.length + textAnnouncements.length
 
-  var goToNext = useCallback(function() {
-    if (totalSlides <= 1) return
-    setIsVisible(false)
-    setTimeout(function() {
-      setCurrentIndex(function(prev) { return (prev + 1) % totalSlides })
-      setIsVisible(true)
-    }, 500)
-  }, [totalSlides])
-
+  // Simple interval timer - same pattern as the working clock
   useEffect(function() {
-    if (totalSlides === 0) return
-    var timer = setTimeout(goToNext, slideDuration * 1000)
-    return function() { clearTimeout(timer) }
-  }, [currentIndex, totalSlides, slideDuration, goToNext])
+    if (totalSlides <= 1) return
+    var interval = setInterval(function() {
+      setCurrentIndex(function(prev) { return (prev + 1) % totalSlides })
+    }, (slideDuration || 10) * 1000)
+    return function() { clearInterval(interval) }
+  }, [totalSlides, slideDuration])
 
   if (totalSlides === 0) {
     return (
@@ -45,9 +37,10 @@ export default function AnnouncementsSlider({ items, announcements, slideDuratio
     )
   }
 
-  var isImage = currentIndex < items.length
-  var currentImage = isImage ? items[currentIndex] : null
-  var currentText = !isImage ? textAnnouncements[currentIndex - items.length] : null
+  var safeIndex = currentIndex % totalSlides
+  var isImage = safeIndex < items.length
+  var currentImage = isImage ? items[safeIndex] : null
+  var currentText = !isImage ? textAnnouncements[safeIndex - items.length] : null
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: '#f8f7f4' }}>
@@ -67,9 +60,8 @@ export default function AnnouncementsSlider({ items, announcements, slideDuratio
               return (
                 <div key={i} style={{
                   height: '4px', borderRadius: '4px',
-                  width: i === currentIndex ? '22px' : '8px',
-                  background: i === currentIndex ? '#891738' : 'rgba(137,23,56,0.15)',
-                  transition: 'all 0.3s',
+                  width: i === safeIndex ? '22px' : '8px',
+                  background: i === safeIndex ? '#891738' : 'rgba(137,23,56,0.15)',
                 }} />
               )
             })}
@@ -78,11 +70,7 @@ export default function AnnouncementsSlider({ items, announcements, slideDuratio
       </div>
 
       {/* Content */}
-      <div style={{
-        position: 'absolute', top: '52px', left: 0, right: 0, bottom: 0,
-        opacity: isVisible ? 1 : 0,
-        transition: 'opacity 0.5s ease',
-      }}>
+      <div style={{ position: 'absolute', top: '52px', left: 0, right: 0, bottom: 0 }}>
         {isImage && currentImage ? (
           <div style={{ height: '100%', padding: '0 16px 16px 16px' }}>
             <img

@@ -25,7 +25,7 @@ export default function AnnouncementsSlider({ items, announcements, slideDuratio
     if (totalSlides <= 1) return
     var interval = setInterval(function() {
       setCurrentIndex(function(prev) { return (prev + 1) % totalSlides })
-    }, (slideDuration || 10) * 1000)
+    }, 25000)
     return function() { clearInterval(interval) }
   }, [totalSlides, slideDuration])
 

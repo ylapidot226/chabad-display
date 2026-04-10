@@ -20,34 +20,31 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   var videoRef = useRef<HTMLVideoElement>(null)
 
   // Timer that advances based on each video's actual duration
-  // Uses setTimeout chain managed by a ref, started once on mount
-  var timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Uses setInterval (reliable on LG TV) checking elapsed time every second
   var indexRef = useRef(0)
+  var advanceAtRef = useRef(0)
 
   useEffect(function() {
     if (videos.length <= 1) return
 
-    function scheduleNext() {
-      var idx = indexRef.current % videos.length
-      var video = videos[idx]
-      var ytId = video ? getYouTubeId(video.url) : null
-      // Use actual duration + 5 sec buffer, or 180s fallback
-      var durationMs = (video && video.duration_seconds && video.duration_seconds > 0)
+    function getDuration(idx: number) {
+      var video = videos[idx % videos.length]
+      return (video && video.duration_seconds && video.duration_seconds > 0)
         ? (video.duration_seconds + 5) * 1000
         : 180000
+    }
 
-      timerRef.current = setTimeout(function() {
+    advanceAtRef.current = Date.now() + getDuration(0)
+
+    var interval = setInterval(function() {
+      if (Date.now() >= advanceAtRef.current) {
         indexRef.current = (indexRef.current + 1) % videos.length
         setCurrentIndex(indexRef.current)
-        scheduleNext() // schedule the next one
-      }, durationMs)
-    }
+        advanceAtRef.current = Date.now() + getDuration(indexRef.current)
+      }
+    }, 1000)
 
-    scheduleNext()
-
-    return function() {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
+    return function() { clearInterval(interval) }
   }, []) // empty deps - set once like the clock
 
   // Idle screen

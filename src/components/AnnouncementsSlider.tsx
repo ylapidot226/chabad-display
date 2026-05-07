@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { MediaItem, Announcement } from '@/lib/types'
 
 interface Props {
@@ -19,17 +19,19 @@ export default function AnnouncementsSlider({ items, announcements, slideDuratio
   })
 
   var totalSlides = items.length + textAnnouncements.length
+  var totalSlidesRef = useRef(totalSlides)
+  totalSlidesRef.current = totalSlides
 
-  // Simple interval - exact same pattern as the working clock
-  // Set once on mount, never re-created
+  // Always run the interval - check totalSlides inside the callback via ref
+  // so it never gets stuck when data loads after mount (common on TV browsers)
   useEffect(function() {
-    if (totalSlides <= 1) return
-    var total = totalSlides
     var interval = setInterval(function() {
+      var total = totalSlidesRef.current
+      if (total <= 1) return
       setCurrentIndex(function(prev) { return (prev + 1) % total })
-    }, 25000)
+    }, slideDuration * 1000)
     return function() { clearInterval(interval) }
-  }, []) // empty deps - set once like the clock
+  }, [slideDuration])
 
   if (totalSlides === 0) {
     return (

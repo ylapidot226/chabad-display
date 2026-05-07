@@ -1,69 +1,84 @@
-// Zmanim from Hebcal API - same times as chabad.org
-// Limassol, Cyprus - geonameid: 146384
+// Zmanim calculated locally via kosher-zmanim (no external API dependency)
+// Limassol, Cyprus: 34.6823°N, 33.0464°E
 
-const GEONAME_ID = 146384
+import { getZmanimJson } from 'kosher-zmanim'
+
+const LAT = 34.6823
+const LON = 33.0464
+const ELEVATION = 10
+const TZ = 'Asia/Nicosia'
 
 interface ZmanimTimes {
   sunset: string
   tzeit85deg: string
-  candles: string  // 18 min before sunset
+  candles: string
   minchaKetana: string
+  alotHaShachar: string
+  sunrise: string
+  chatzot: string
+  minchaGedola: string
+  plagHaMincha: string
+  beinHaShmashos: string
   [key: string]: string
 }
 
 let cachedTimes: { date: string; times: ZmanimTimes } | null = null
 
 function getTodayStr(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Nicosia' })
+  return new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 }
 
-function extractTime(isoString: string): string {
-  // "2026-04-07T19:14:00+03:00" -> "19:14"
+function extractTime(isoString: string | undefined | null): string {
+  if (!isoString || typeof isoString !== 'string') return '--:--'
   const match = isoString.match(/T(\d{2}:\d{2})/)
   return match ? match[1] : '--:--'
-}
-
-function subtractMinutes(isoString: string, minutes: number): string {
-  const date = new Date(isoString)
-  date.setMinutes(date.getMinutes() - minutes)
-  return date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Nicosia' })
 }
 
 export async function fetchZmanim(dateStr?: string): Promise<ZmanimTimes> {
   const date = dateStr || getTodayStr()
 
-  // Return cache if same day
   if (cachedTimes && cachedTimes.date === date) {
     return cachedTimes.times
   }
 
   try {
-    const res = await fetch(`https://www.hebcal.com/zmanim?cfg=json&geonameid=${GEONAME_ID}&date=${date}`)
-    const data = await res.json()
-    const t = data.times
+    const result = getZmanimJson({
+      date: new Date(date + 'T12:00:00'),
+      timeZoneId: TZ,
+      latitude: LAT,
+      longitude: LON,
+      elevation: ELEVATION,
+    })
+
+    const z = (result.BasicZmanim || {}) as Record<string, string>
 
     const times: ZmanimTimes = {
-      sunset: extractTime(t.sunset),
-      tzeit85deg: extractTime(t.tzeit85deg),
-      candles: subtractMinutes(t.sunset, 18),
-      minchaKetana: extractTime(t.minchaKetana),
-      alotHaShachar: extractTime(t.alotHaShachar),
-      sunrise: extractTime(t.sunrise),
-      chatzot: extractTime(t.chatzot),
-      minchaGedola: extractTime(t.minchaGedola),
-      plagHaMincha: extractTime(t.plagHaMincha),
-      beinHaShmashos: extractTime(t.beinHaShmashos),
+      sunset: extractTime(z.Sunset),
+      tzeit85deg: extractTime(z.Tzais),
+      candles: extractTime(z.CandleLighting),
+      minchaKetana: extractTime(z.MinchaKetana),
+      alotHaShachar: extractTime(z.AlosHashachar),
+      sunrise: extractTime(z.Sunrise),
+      chatzot: extractTime(z.Chatzos),
+      minchaGedola: extractTime(z.MinchaGedola),
+      plagHaMincha: extractTime(z.PlagHamincha),
+      beinHaShmashos: extractTime(z.Tzais),
     }
 
     cachedTimes = { date, times }
     return times
   } catch {
-    // Fallback if API fails
     return {
       sunset: '--:--',
       tzeit85deg: '--:--',
       candles: '--:--',
       minchaKetana: '--:--',
+      alotHaShachar: '--:--',
+      sunrise: '--:--',
+      chatzot: '--:--',
+      minchaGedola: '--:--',
+      plagHaMincha: '--:--',
+      beinHaShmashos: '--:--',
     }
   }
 }
@@ -75,7 +90,6 @@ export function getCandleLightingTime(): string { return cachedTimes?.times.cand
 
 export function getMinchaTime(): string {
   if (!cachedTimes) return '--:--'
-  // 15 min before sunset
   const sunset = cachedTimes.times.sunset
   const [h, m] = sunset.split(':').map(Number)
   const totalMin = h * 60 + m - 15
@@ -87,13 +101,11 @@ export function getMinchaTime(): string {
 // Shabbat / Yom Tov detection
 export function isShabbat(): boolean {
   const now = new Date()
-  const nicosia = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Nicosia' }))
+  const nicosia = new Date(now.toLocaleString('en-US', { timeZone: TZ }))
   const day = nicosia.getDay()
   const timeStr = nicosia.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false })
 
-  // All day Friday = Shabbat mode (preparing for Shabbat)
   if (day === 5) return true
-  // Saturday before tzeit
   if (day === 6 && cachedTimes) {
     if (timeStr < cachedTimes.times.tzeit85deg) return true
   }
@@ -120,7 +132,7 @@ export function isYomTov(): boolean {
 
   if (EREV_YOM_TOV.includes(dateStr) && cachedTimes) {
     const now = new Date()
-    const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Nicosia' })
+    const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ })
     if (timeStr >= cachedTimes.times.sunset) return true
   }
   return false

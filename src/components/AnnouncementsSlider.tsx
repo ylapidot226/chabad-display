@@ -22,16 +22,28 @@ export default function AnnouncementsSlider({ items, announcements, slideDuratio
   var totalSlidesRef = useRef(totalSlides)
   totalSlidesRef.current = totalSlides
 
-  // Always run the interval - check totalSlides inside the callback via ref
-  // so it never gets stuck when data loads after mount (common on TV browsers)
-  useEffect(function() {
-    var interval = setInterval(function() {
-      var total = totalSlidesRef.current
-      if (total <= 1) return
-      setCurrentIndex(function(prev) { return (prev + 1) % total })
-    }, slideDuration * 1000)
-    return function() { clearInterval(interval) }
-  }, [slideDuration])
+  var durationMs = Math.max(slideDuration || 10, 5) * 1000 // minimum 5 seconds
+
+  // Stable advance ref so the setTimeout closure always calls the latest version
+  var advanceRef = useRef(function () {})
+  advanceRef.current = function () {
+    var total = totalSlidesRef.current
+    if (total <= 1) return
+    setCurrentIndex(function (prev) { return (prev + 1) % total })
+  }
+
+  // Self-rescheduling setTimeout — resets cleanly on every advance,
+  // more reliable than setInterval on TV browsers that throttle background timers
+  useEffect(function () {
+    var cancelled = false
+    function tick() {
+      if (cancelled) return
+      advanceRef.current()
+      handle = setTimeout(tick, durationMs)
+    }
+    var handle = setTimeout(tick, durationMs)
+    return function () { cancelled = true; clearTimeout(handle) }
+  }, [durationMs])
 
   if (totalSlides === 0) {
     return (

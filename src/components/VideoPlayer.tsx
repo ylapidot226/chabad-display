@@ -45,6 +45,7 @@ interface Slide {
   ytId: string | null
   url: string
   title: string
+  duration: number // seconds — fallback timer uses this
 }
 
 function buildSlides(videos: MediaItem[]): Slide[] {
@@ -53,9 +54,15 @@ function buildSlides(videos: MediaItem[]): Slide[] {
     var v = videos[i]
     var ytId = getYtId(v.url)
     if (ytId) {
-      result.push({ type: 'youtube', ytId, url: v.url, title: v.title || '' })
+      result.push({
+        type: 'youtube', ytId, url: v.url, title: v.title || '',
+        duration: v.duration_seconds > 0 ? v.duration_seconds : 180, // default 3 min
+      })
     } else if (isVideoFile(v.url)) {
-      result.push({ type: 'video', ytId: null, url: v.url, title: v.title || '' })
+      result.push({
+        type: 'video', ytId: null, url: v.url, title: v.title || '',
+        duration: v.duration_seconds > 0 ? v.duration_seconds : 120,
+      })
     }
   }
   return result
@@ -99,88 +106,83 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   var slides = buildSlides(videos)
   var [idx, setIdx] = useState(0)
 
-  // Refs so closures always see current values
   var idxRef = useRef(0)
   var slidesRef = useRef(slides)
   slidesRef.current = slides
 
-  // YouTube player instance (typed as any — YT global loaded at runtime)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   var playerRef = useRef<any>(null)
-  // The div that YouTube replaces with an iframe
   var ytContainerRef = useRef<HTMLDivElement>(null)
-  // Whether the YT player has been initialized
   var ytReadyRef = useRef(false)
 
+  // Timer fallback: tracks when the current slide started
+  var slideStartRef = useRef(Date.now())
+
   // ── Advance to next slide ──────────────────────────────────────────────────
-  function advance() {
+  var advanceRef = useRef(function () {}) // stable ref so closures always call latest
+  advanceRef.current = function advance() {
     var all = slidesRef.current
     if (all.length === 0) return
     var next = (idxRef.current + 1) % all.length
     idxRef.current = next
+    slideStartRef.current = Date.now() // reset fallback timer
     setIdx(next)
 
-    // If next slide is YouTube and player is alive → just load new video ID
-    // (avoids destroying and recreating the player, which causes a flash)
+    // If next is YouTube and player is alive → load new video without recreating player
     if (all[next].type === 'youtube' && playerRef.current && ytReadyRef.current) {
-      try {
-        playerRef.current.loadVideoById({ videoId: all[next].ytId! })
-      } catch (_) {
-        // player might be in a bad state; it will reinitialize via the effect below
-      }
+      try { playerRef.current.loadVideoById({ videoId: all[next].ytId }) } catch (_) {}
     }
   }
 
-  // ── YouTube player lifecycle ───────────────────────────────────────────────
-  // Runs whenever the current slide changes to a YouTube slide
+  // ── PRIMARY: fallback timer (runs regardless of YouTube events) ────────────
+  // Ticks every second. If elapsed time > slide duration → advance.
+  // This guarantees advancement even if YouTube is blocked or events don't fire.
   useEffect(function () {
-    var current = slidesRef.current[idxRef.current]
-    if (!current || current.type !== 'youtube') return
-    if (!ytContainerRef.current) return
+    slideStartRef.current = Date.now()
 
-    // If already initialized, loadVideoById was already called in advance()
-    if (ytReadyRef.current && playerRef.current) return
+    var interval = setInterval(function () {
+      var all = slidesRef.current
+      if (all.length <= 1) return
+      var current = all[idxRef.current]
+      if (!current) return
 
-    // Create a fresh player
-    ensureYtApi(function () {
-      if (!ytContainerRef.current) return
+      // For direct videos, onEnded handles it — timer is just a safety net (+30s)
+      var duration = current.duration + (current.type === 'video' ? 30 : 0)
+      var elapsed = (Date.now() - slideStartRef.current) / 1000
 
-      // If somehow a player already exists, destroy it first
-      if (playerRef.current) {
-        try { playerRef.current.destroy() } catch (_) {}
-        playerRef.current = null
-        ytReadyRef.current = false
+      if (elapsed >= duration) {
+        advanceRef.current()
       }
+    }, 1000)
+
+    return function () { clearInterval(interval) }
+  }, []) // mount once — uses refs inside
+
+  // ── SECONDARY: YouTube player (for smooth playback + early end detection) ──
+  useEffect(function () {
+    var current = slidesRef.current[0]
+    if (!current || current.type !== 'youtube') return
+
+    ensureYtApi(function () {
+      if (!ytContainerRef.current || playerRef.current) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      var YTPlayer = (window as any).YT.Player
-      playerRef.current = new YTPlayer(ytContainerRef.current!, {
-        videoId: slidesRef.current[idxRef.current]?.ytId || '',
+      playerRef.current = new ((window as any).YT.Player)(ytContainerRef.current, {
+        videoId: current.ytId || '',
         playerVars: {
-          autoplay: 1,
-          controls: 0,
-          rel: 0,
-          showinfo: 0,
-          iv_load_policy: 3,
-          disablekb: 1,
-          fs: 0,
-          playsinline: 1,
-          modestbranding: 1,
+          autoplay: 1, controls: 0, rel: 0, showinfo: 0,
+          iv_load_policy: 3, disablekb: 1, fs: 0,
+          playsinline: 1, modestbranding: 1,
           origin: window.location.origin,
         },
         events: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onReady: function (e: any) {
-            ytReadyRef.current = true
-            e.target.playVideo()
-          },
+          onReady: function (e: any) { ytReadyRef.current = true; e.target.playVideo() },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onStateChange: function (e: any) {
-            if (e.data === 0) advance() // 0 = YT.PlayerState.ENDED
+            if (e.data === 0) advanceRef.current() // ENDED — advance early
           },
-          onError: function () {
-            advance() // skip blocked / unavailable videos
-          },
+          onError: function () { advanceRef.current() }, // skip blocked videos
         },
       })
     })
@@ -192,8 +194,7 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
         ytReadyRef.current = false
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // intentionally empty — player lifecycle managed via refs
+  }, []) // mount once
 
   if (slides.length === 0) return <IdleScreen />
 
@@ -203,27 +204,22 @@ export default function VideoPlayer({ videos }: { videos: MediaItem[] }) {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: '#000' }}>
 
-      {/* YouTube player container — always mounted, hidden when not in use */}
-      <div
-        style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          display: current.type === 'youtube' ? 'block' : 'none',
-        }}
-      >
-        <div
-          ref={ytContainerRef}
-          style={{ width: '100%', height: '100%' }}
-        />
+      {/* YouTube container — always in DOM, hidden when showing video file */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        display: current.type === 'youtube' ? 'block' : 'none',
+      }}>
+        <div ref={ytContainerRef} style={{ width: '100%', height: '100%' }} />
       </div>
 
-      {/* HTML5 video — key forces fresh element on each new URL */}
+      {/* HTML5 video */}
       {current.type === 'video' && (
         <video
           key={current.url}
           src={current.url}
           autoPlay
           playsInline
-          onEnded={advance}
+          onEnded={function () { advanceRef.current() }}
           style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain' }}
         />
       )}

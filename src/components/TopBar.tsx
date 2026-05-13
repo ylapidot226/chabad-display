@@ -2,54 +2,84 @@
 
 import { useState, useEffect } from 'react'
 
-var hebrewDays = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
-var hebrewMonths = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
+// Cyprus (Nicosia) timezone offset:
+// EEST (summer, last Sun Mar → last Sun Oct): UTC+3
+// EET  (winter): UTC+2
+function getNicosiaDate(): Date {
+  var now = new Date()
+  var utcMs = now.getTime() + now.getTimezoneOffset() * 60000
+  // Determine DST: last Sunday in March → last Sunday in October
+  var y = now.getUTCFullYear()
+  function lastSunday(month: number) {
+    // Find last Sunday of given month (0-based) in year y
+    var d = new Date(Date.UTC(y, month + 1, 0)) // last day of month
+    d.setUTCDate(d.getUTCDate() - d.getUTCDay()) // go back to Sunday
+    return d.getTime()
+  }
+  var dstStart = lastSunday(2)  // last Sunday of March
+  var dstEnd   = lastSunday(9)  // last Sunday of October
+  var offset   = (utcMs >= dstStart && utcMs < dstEnd) ? 3 : 2
+  return new Date(utcMs + offset * 3600000)
+}
 
-var TZ = 'Asia/Nicosia'
+var hebrewDays   = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+var hebrewMonths = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+                    'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
+
+function pad(n: number) { return n < 10 ? '0' + n : '' + n }
 
 function getTime(): string {
-  var now = new Date()
-  return now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ })
+  var d = getNicosiaDate()
+  return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes())
 }
 
 function getGregDate(): string {
-  var now = new Date()
-  var nicosia = new Date(now.toLocaleString('en-US', { timeZone: TZ }))
-  var dayName = 'יום ' + hebrewDays[nicosia.getDay()]
-  return dayName + ', ' + nicosia.getDate() + ' ב' + hebrewMonths[nicosia.getMonth()]
+  var d = getNicosiaDate()
+  return 'יום ' + hebrewDays[d.getUTCDay()] + ', ' + d.getUTCDate() + ' ב' + hebrewMonths[d.getUTCMonth()]
 }
 
 function getHebrewDate(): string {
   try {
-    var now = new Date()
-    var formatter = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ })
-    return formatter.format(now)
-  } catch (e) {
-    return ''
-  }
+    var formatter = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', {
+      day: 'numeric', month: 'long', year: 'numeric',
+      timeZone: 'Asia/Nicosia',
+    })
+    return formatter.format(new Date())
+  } catch (_) { return '' }
 }
 
 export default function TopBar() {
-  var [time, setTime] = useState(getTime())
-  var [gregDate, setGregDate] = useState(getGregDate())
+  var [time, setTime]           = useState('')
+  var [gregDate, setGregDate]   = useState('')
   var [hebrewDate, setHebrewDate] = useState('')
 
-  useEffect(function() {
-    // Set hebrew date after mount (might fail on some browsers)
+  useEffect(function () {
+    // Set initial values
+    setTime(getTime())
+    setGregDate(getGregDate())
     setHebrewDate(getHebrewDate())
 
-    function update() {
-      setTime(getTime())
-      setGregDate(getGregDate())
+    // requestAnimationFrame loop — not throttled by TV browsers like setInterval
+    var rafId = 0
+    var lastMinute = -1
+
+    function tick() {
+      var d = getNicosiaDate()
+      var m = d.getUTCMinutes()
+      if (m !== lastMinute) {
+        lastMinute = m
+        setTime(pad(d.getUTCHours()) + ':' + pad(m))
+        setGregDate(getGregDate())
+      }
+      rafId = requestAnimationFrame(tick)
     }
-    var interval = setInterval(update, 1000)
-    return function() { clearInterval(interval) }
+
+    rafId = requestAnimationFrame(tick)
+    return function () { cancelAnimationFrame(rafId) }
   }, [])
 
   return (
-    <div style={{
-      flexShrink: 0, position: 'relative', zIndex: 10,
-    }}>
+    <div style={{ flexShrink: 0, position: 'relative', zIndex: 10 }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         height: '80px', paddingLeft: '32px', paddingRight: '32px',
@@ -71,7 +101,9 @@ export default function TopBar() {
 
         {/* Center: Dates */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '18px', fontWeight: 500, color: 'rgba(255,255,255,0.8)' }}>{gregDate}</span>
+          {gregDate && (
+            <span style={{ fontSize: '18px', fontWeight: 500, color: 'rgba(255,255,255,0.8)' }}>{gregDate}</span>
+          )}
           {hebrewDate && (
             <>
               <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
@@ -81,8 +113,8 @@ export default function TopBar() {
         </div>
 
         {/* Left: Clock */}
-        <div style={{ fontSize: '48px', fontWeight: 300, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
-          {time}
+        <div style={{ fontSize: '48px', fontWeight: 300, color: '#fff', fontVariantNumeric: 'tabular-nums', minWidth: '120px', textAlign: 'left' }}>
+          {time || '--:--'}
         </div>
       </div>
     </div>
